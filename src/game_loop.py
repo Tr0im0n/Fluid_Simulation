@@ -4,6 +4,7 @@ import pygame
 from looping_circle import LoopingCircle
 
 class Game:
+    fps: int
 
     DEFAULTS  = {
         'width': 800,        
@@ -25,11 +26,12 @@ class Game:
         self.screen = pygame.display.set_mode(self.size)
         pygame.display.set_caption("Basic Pygame Loop")
         self.clock = pygame.time.Clock()
-        self.fps = fps
         self.running = True
         
-        self.circle = LoopingCircle(width, height)
+        self.looping_circle = LoopingCircle(width, height)
         self.font = pygame.font.SysFont(None, 24)
+
+
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -39,23 +41,33 @@ class Game:
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
 
+    def update(self, dt: float):
+        self.looping_circle.update(dt)
+
     def draw_fps(self):
         fps_text = self.font.render(f"FPS: {int(self.clock.get_fps())}", True, (200, 200, 200))
         self.screen.blit(fps_text, (10, 10))
+
+    def draw(self):
+        self.looping_circle.draw(self.screen)
+        self.draw_fps()
 
     def run(self):
         try:
             while self.running:
                 dt = self.clock.tick(self.fps) / 1000.0  # seconds since last frame
                 self.handle_events()
-                self.circle.update(dt)
-                self.circle.draw(self.screen)
-                self.draw_fps()
+                self.update(dt)
+                self.draw()
                 pygame.display.flip()
         finally:
             pygame.quit()
             sys.exit()
 
 
+def main():
+    game1 = Game()
+    game1.run()
+
 if __name__ == "__main__":
-    Game().run()
+    main()
