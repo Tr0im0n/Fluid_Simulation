@@ -1,7 +1,9 @@
 import sys
 import pygame
 
+from density import DensityFluidSim
 from looping_circle import LoopingCircle
+from utils.colors import colormap
 
 class Game:
     fps: int
@@ -31,6 +33,7 @@ class Game:
         self.looping_circle = LoopingCircle(width, height)
         self.font = pygame.font.SysFont(None, 24)
 
+        self.DFS = DensityFluidSim(DensityFluidSim.particle_grid(100))
 
 
     def handle_events(self):
@@ -44,12 +47,19 @@ class Game:
     def update(self, dt: float):
         self.looping_circle.update(dt)
 
+    def draw_particles(self):
+        densities = self.DFS.get_normalized_densities()
+        colors = [colormap(density, (0, 0, 255), (255, 255, 255), (255, 0, 0)) for density in densities]
+        for point, color in zip(self.DFS.particles, colors):
+            pygame.draw.circle(self.screen, color, (int(point[0]), int(point[1])), 3)
+
     def draw_fps(self):
         fps_text = self.font.render(f"FPS: {int(self.clock.get_fps())}", True, (200, 200, 200))
         self.screen.blit(fps_text, (10, 10))
 
     def draw(self):
-        self.looping_circle.draw(self.screen)
+        # self.looping_circle.draw(self.screen)
+        self.draw_particles()
         self.draw_fps()
 
     def run(self):
