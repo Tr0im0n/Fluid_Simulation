@@ -34,6 +34,9 @@ class Game:
         self.font = pygame.font.SysFont(None, 24)
 
         self.DFS = DensityFluidSim(DensityFluidSim.particle_grid(100))
+        self.DFS.particles = self.DFS.random_particles(100)
+        self.DFS.populate_spatial_partition()
+        self.DFS.cache_densities()
 
 
     def handle_events(self):

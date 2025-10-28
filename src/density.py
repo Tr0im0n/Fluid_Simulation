@@ -153,6 +153,13 @@ class DensityFluidSim:
             normalized_densities = (self.cached_densities - rho_min) / (rho_max - rho_min)
         return normalized_densities
 
+    def random_particles(self, num_points:int) -> np.ndarray:
+        max_width = self.sim_width
+        max_height = self.sim_height
+        x_coords = np.random.uniform(low=0, high=max_width, size=num_points)
+        y_coords = np.random.uniform(low=0, high=max_height, size=num_points)
+        return np.stack((x_coords, y_coords), axis=1)
+
 
 #########################################################################################################################
 
@@ -185,7 +192,7 @@ class DensityFluidSim:
 
     @staticmethod
     def particle_grid(amount: int) -> np.ndarray:
-        """I need to find a way to turn of the autocomplete. """
+        """This seems quite shit. """
         side_length = int(np.ceil(np.sqrt(amount)))
         spacing = DensityFluidSim.DEFAULT_RADIUS * 0.5
         points = []
