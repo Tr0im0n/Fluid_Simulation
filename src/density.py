@@ -1,6 +1,7 @@
 
 import numpy as np
 from utils.instance import _set_config_attributes
+from utils.sph_kernels import square_kernel, square_kernel_derivative
 
 """
 
@@ -14,6 +15,8 @@ https://www.youtube.com/watch?v=rSKMYc1CQHE
 class DensityFluidSim:
     PI = np.pi
     DEFAULT_RADIUS = 50.0
+    DIMENSIONS = 2
+    N_NEIGHBORS = 9
     DEFAULTS_DICT = {
         "sim_width": 800,
         "sim_height": 600,
@@ -69,9 +72,11 @@ class DensityFluidSim:
         self.inverse_volume = 6.0 / (self.PI * pow(self.radius, 4))
         self.inverse_volume2 = -12.0 / (self.PI * pow(self.radius, 4))
         # 
-        self.neighbors = [-self.grid_width -1, -self.grid_width, -self.grid_width +1,
-                          -1,                 0,              1,
-                          self.grid_width -1,  self.grid_width, self.grid_width +1]
+        self.neighbor_offsets = np.array([
+            -self.grid_width -1, -self.grid_width, -self.grid_width +1,
+            -1,                 0,              1,
+            self.grid_width -1,  self.grid_width, self.grid_width +1
+        ])
 
     @property
     def particles(self) -> np.ndarray:
@@ -110,19 +115,24 @@ class DensityFluidSim:
             cell_index = self.partition_index_from_pos(particle)
             self.spatial_partition_list[cell_index].append(particle_index)
 
-    def calc_influence(self, distance: float) -> float:
-        linear = max(0, self.radius - distance)
-        return pow(linear, 2) * self.inverse_volume
-    
-    def calc_influence_derivative(self, distance: float) -> float:
-        linear = max(0, self.radius - distance)
-        return linear * self.inverse_volume2
+    def create_neighboring_cells_array(self):
+        self.neighboring_cells = np.full((self.n_particles, self.N_NEIGHBORS), -1, dtype=np.int32)
+        for i in range(self.total_cells):
+            # neighbor_cell_indices = self.neighbor_offsets + i
+            neighbor_cell_indices = [
+                i + off
+                for off in self.neighbor_offsets
+                if 0 <= (i + off) < self.total_cells
+            ]
+            n_neighbors = len(neighbor_cell_indices)
+            self.neighboring_cells[i, 0:n_neighbors] = neighbor_cell_indices
+        
 
     def neighboring_cell_indices(self, point: np.ndarray) -> list[int]:
         current_index = self.partition_index_from_pos(point)
         neighbor_cell_indices = [
             current_index + off
-            for off in self.neighbors
+            for off in self.neighbor_offsets
             if 0 <= (current_index + off) < self.total_cells
         ]
         return neighbor_cell_indices
@@ -196,7 +206,7 @@ class DensityFluidSim:
             if distance > self.radius or distance == 0:
                 continue
             direction = diff / distance
-            influence_derivative = self.calc_influence_derivative(distance)
+            influence_derivative = square_kernel_derivative(distance, self._radius, self.inverse_volume2)
 
             other_density = self.cached_densities[j]
             
@@ -237,7 +247,7 @@ class DensityFluidSim:
         total_density = 0.0
         for other_point in self._particles:
             distance = float(np.linalg.norm(point - other_point))
-            influence = self.calc_influence(distance)
+            influence = square_kernel(distance, self._radius, self.inverse_volume)
             total_density += influence * self.mass
         return total_density
 
