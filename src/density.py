@@ -1,6 +1,6 @@
 
 import numpy as np
-from itertools import chain
+from utils.instance import _set_config_attributes
 
 """
 
@@ -30,36 +30,25 @@ class DensityFluidSim:
     pressure_force_multiplier: float
     total_cells: int
 
-    def __init__(self,
-                 points: np.ndarray,
-                 # All DEFAULTS_DICT keys below:
-                 sim_width: int | None = None,
-                 sim_height: int | None = None,
-                 radius: float | None = None,
-                 mass: float | None = None,
-                 target_density: float | None = None,
-                 pressure_force_multiplier: float | None = None, 
-                 ) -> None:
+    def __init__(
+            self,
+            particles: np.ndarray,
+            # All DEFAULTS_DICT keys below:
+            sim_width: int | None = None,
+            sim_height: int | None = None,
+            radius: float | None = None,
+            mass: float | None = None,
+            target_density: float | None = None,
+            pressure_force_multiplier: float | None = None, 
+        ) -> None:
         
         init_args = locals()
-        self._set_config_attributes(init_args)
-
-        self.particles = points
-        self.n_points = len(points)
+        _set_config_attributes(self, init_args, self.DEFAULTS_DICT)
 
         self.radius = radius if radius is not None else self.DEFAULT_RADIUS
-        
-        self.spatial_partition_list = [list() for _ in range(self.total_cells)]
-        self.populate_spatial_partition()
 
-        self.cached_densities = np.zeros(self.n_points, dtype=np.float32)
-        self.cache_densities()
+        self.set_particles(particles, True, True)
 
-
-    def _set_config_attributes(self, init_args) -> None:
-        for var_name, default_value in self.DEFAULTS_DICT.items():
-            value = init_args.get(var_name)
-            setattr(self, var_name, value if value is not None else default_value)
 
     @property
     def radius(self) -> float:
@@ -84,13 +73,40 @@ class DensityFluidSim:
                           -1,                 0,              1,
                           self.grid_width -1,  self.grid_width, self.grid_width +1]
 
+    @property
+    def particles(self) -> np.ndarray:
+        return self._particles
+    
+    @particles.setter
+    def particles(self, value: np.ndarray) -> None: 
+        self._particles = value
+        self._on_particles_change(change_amount=True)
+
+    def set_particles(self, value: np.ndarray, change_amount: bool = True, new_list_for_spatial_partition: bool = False) -> None:
+        self._particles = value
+        self._on_particles_change(change_amount, new_list_for_spatial_partition)
+        
+    def _on_particles_change(self, change_amount: bool = False, new_list_for_spatial_partition: bool = False) -> None:
+        if change_amount:
+            self.n_particles = self._particles.shape[0]
+            
+        self.populate_spatial_partition(create_new_list=new_list_for_spatial_partition)
+        self.cache_densities(create_new_array=change_amount)
+
+#########################################################################################################################
+# Finished properties
+#########################################################################################################################
+
     def partition_index_from_pos(self, point: np.ndarray) -> int:
         cell_x = int(point[0] // self.radius)
         cell_y = int(point[1] // self.radius)
         return cell_y * self.grid_width + cell_x
 
-    def populate_spatial_partition(self) -> None:
-        for particle_index, particle in enumerate(self.particles):
+    def populate_spatial_partition(self, create_new_list: bool = False) -> None:
+        if create_new_list:
+            self.spatial_partition_list = [list() for _ in range(self.total_cells)]
+
+        for particle_index, particle in enumerate(self._particles):
             cell_index = self.partition_index_from_pos(particle)
             self.spatial_partition_list[cell_index].append(particle_index)
 
@@ -126,7 +142,7 @@ class DensityFluidSim:
 
         # if 0 == particles_to_check.size:
         #     return 0.0
-        neighbor_particles = self.particles[neighbor_indices]
+        neighbor_particles = self._particles[neighbor_indices]
 
         diffs = neighbor_particles - point
         dists = np.linalg.norm(diffs, axis=1)
@@ -138,10 +154,13 @@ class DensityFluidSim:
     def density_at_point(self, point: np.ndarray) -> float:
         return self._density_at_point_spatial_partition(point)
 
-    def cache_densities(self) -> None:
+    def cache_densities(self, create_new_array: bool = False) -> None:
         """Could be optimized with Numba"""
+        if create_new_array:
+            self.cached_densities = np.zeros(self.n_particles, dtype=np.float32)
+
         self.cached_densities.fill(0.0)
-        for i, point in enumerate(self.particles):
+        for i, point in enumerate(self._particles):
             self.cached_densities[i] = self.density_at_point(point)
 
     def get_normalized_densities(self) -> np.ndarray:
@@ -164,12 +183,12 @@ class DensityFluidSim:
 #########################################################################################################################
 
     def calc_pressure_force_for_index(self, index: int) -> np.ndarray:
-        point = self.particles[index]
+        point = self._particles[index]
         density = self.cached_densities[index]
 
         total_force = np.zeros(2, dtype=np.float32)
 
-        for j, other_point in enumerate(self.particles):
+        for j, other_point in enumerate(self._particles):
             if j == index:
                 continue
             diff = point - other_point
@@ -216,14 +235,14 @@ class DensityFluidSim:
 
     def _density_at_point_loop(self, point: np.ndarray) -> float:
         total_density = 0.0
-        for other_point in self.particles:
+        for other_point in self._particles:
             distance = float(np.linalg.norm(point - other_point))
             influence = self.calc_influence(distance)
             total_density += influence * self.mass
         return total_density
 
     def _density_at_point_vector(self, point: np.ndarray) -> float:
-        diffs = self.particles - point
+        diffs = self._particles - point
         dists = np.linalg.norm(diffs, axis=1)
         linear = np.maximum(0.0, self.radius - dists)
         influences = np.power(linear, 2)
