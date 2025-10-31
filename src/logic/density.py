@@ -77,6 +77,8 @@ class DensityFluidSim:
             -1,                 0,              1,
             self.grid_width -1,  self.grid_width, self.grid_width +1
         ])
+        self.create_neighboring_cells_array()
+        print(self.neighboring_cells)
 
     @property
     def particles(self) -> np.ndarray:
@@ -102,20 +104,23 @@ class DensityFluidSim:
 # Finished properties
 #########################################################################################################################
 
-    def partition_index_from_pos(self, point: np.ndarray) -> int:
+    def get_partition_index_from_pos(self, point: np.ndarray) -> int:
+        """ Get the index in the spatial partition, of the particle. """
         cell_x = int(point[0] // self.radius)
         cell_y = int(point[1] // self.radius)
         return cell_y * self.grid_width + cell_x
 
     def populate_spatial_partition(self, create_new_list: bool = False) -> None:
+        """ Put the particles indices in their correct spatial partition. """
         if create_new_list:
             self.spatial_partition_list = [list() for _ in range(self.total_cells)]
 
         for particle_index, particle in enumerate(self._particles):
-            cell_index = self.partition_index_from_pos(particle)
+            cell_index = self.get_partition_index_from_pos(particle)
             self.spatial_partition_list[cell_index].append(particle_index)
 
     def create_neighboring_cells_array(self):
+        """ Make array where each row are the indices of the cells neighboring the cell of that index """
         self.neighboring_cells = np.full((self.n_particles, self.N_NEIGHBORS), -1, dtype=np.int32)
         for i in range(self.total_cells):
             # neighbor_cell_indices = self.neighbor_offsets + i
@@ -126,19 +131,11 @@ class DensityFluidSim:
             ]
             n_neighbors = len(neighbor_cell_indices)
             self.neighboring_cells[i, 0:n_neighbors] = neighbor_cell_indices
-        
 
-    def neighboring_cell_indices(self, point: np.ndarray) -> list[int]:
-        current_index = self.partition_index_from_pos(point)
-        neighbor_cell_indices = [
-            current_index + off
-            for off in self.neighbor_offsets
-            if 0 <= (current_index + off) < self.total_cells
-        ]
-        return neighbor_cell_indices
-
-    def neighboring_particle_indices(self, point: np.ndarray) -> np.ndarray:
-        neighbor_cell_indices = self.neighboring_cell_indices(point)
+    def get_neighboring_particle_indices(self, point: np.ndarray) -> np.ndarray:
+        """ Returns the indices of the particles in the neighboring partitions. """
+        partition_index = self.get_partition_index_from_pos(point)
+        neighbor_cell_indices = self.neighboring_cells[partition_index]
         list_of_lists_of_particle_indices = [self.spatial_partition_list[i] for i in neighbor_cell_indices]
         # np.concatenate apparently doesn't work with empty lists
         non_empty_lists = [lst for lst in list_of_lists_of_particle_indices if lst]
@@ -147,8 +144,10 @@ class DensityFluidSim:
         # Could at some point return a floats instead of ints, so might have to .astype(np.int32)
         return np.concatenate(non_empty_lists, axis=0)
 
-    def _density_at_point_spatial_partition(self, point: np.ndarray) -> float:
-        neighbor_indices = self.neighboring_particle_indices(point)
+    def _calc_density_at_point_spatial_partition(self, point: np.ndarray) -> float:
+        """ Calculate the density at the given points. 
+        Optimized by only looking at particles in neighboring partitions. """
+        neighbor_indices = self.get_neighboring_particle_indices(point)
 
         # if 0 == particles_to_check.size:
         #     return 0.0
@@ -161,8 +160,10 @@ class DensityFluidSim:
 
         return influences.sum() * self.mass * self.inverse_volume
 
-    def density_at_point(self, point: np.ndarray) -> float:
-        return self._density_at_point_spatial_partition(point)
+    def calc_density_at_point(self, point: np.ndarray) -> float:
+        """ Calculate the density at the given points. 
+        Pick one of the private methods to use. """
+        return self._calc_density_at_point_spatial_partition(point)
 
     def cache_densities(self, create_new_array: bool = False) -> None:
         """Could be optimized with Numba"""
@@ -171,9 +172,10 @@ class DensityFluidSim:
 
         self.cached_densities.fill(0.0)
         for i, point in enumerate(self._particles):
-            self.cached_densities[i] = self.density_at_point(point)
+            self.cached_densities[i] = self.calc_density_at_point(point)
 
     def get_normalized_densities(self) -> np.ndarray:
+        """ Return the array of densities, but normalized. """
         rho_min = self.cached_densities.min()
         rho_max = self.cached_densities.max()
         if rho_max == rho_min:
@@ -182,12 +184,16 @@ class DensityFluidSim:
             normalized_densities = (self.cached_densities - rho_min) / (rho_max - rho_min)
         return normalized_densities
 
-    def random_particles(self, num_points:int) -> np.ndarray:
-        max_width = self.sim_width
-        max_height = self.sim_height
-        x_coords = np.random.uniform(low=0, high=max_width, size=num_points)
-        y_coords = np.random.uniform(low=0, high=max_height, size=num_points)
-        return np.stack((x_coords, y_coords), axis=1)
+    def generate_random_particles(self, num_points:int, seed: int = 42) -> np.ndarray:
+        """ I mean read the method name. """
+        np.random.seed(seed)
+        max_width, max_height = self.sim_width, self.sim_height
+        particles = np.random.uniform(
+            low=[0, 0], 
+            high=[max_width, max_height], 
+            size=(num_points, 2)
+        )
+        return particles
 
 
 #########################################################################################################################
@@ -262,13 +268,32 @@ class DensityFluidSim:
         cell_y = index // self.grid_width
         cell_x = index % self.grid_width
         return np.array([cell_x, cell_y], dtype=np.int32)
+        
+    def neighboring_cell_indices(self, point: np.ndarray) -> list[int]:
+        current_index = self.get_partition_index_from_pos(point)
+        neighbor_cell_indices = [
+            current_index + off
+            for off in self.neighbor_offsets
+            if 0 <= (current_index + off) < self.total_cells
+        ]
+        return neighbor_cell_indices
+
+    def generate_random_particles_stack(self, num_points:int) -> np.ndarray:
+        """ I mean read the method name. """
+        max_width = self.sim_width
+        max_height = self.sim_height
+        x_coords = np.random.uniform(low=0, high=max_width, size=num_points)
+        y_coords = np.random.uniform(low=0, high=max_height, size=num_points)
+        return np.stack((x_coords, y_coords), axis=1)
 
 
 
 
 def main():
-    points = DensityFluidSim.particle_grid(100)
-    DFS = DensityFluidSim(points)
+    particle_grid = DensityFluidSim.particle_grid(10)
+    DFS = DensityFluidSim(particle_grid)
+    random_particles = DFS.generate_random_particles(1000)
+    DFS.set_particles(random_particles)
 
 
 if __name__ == "__main__":

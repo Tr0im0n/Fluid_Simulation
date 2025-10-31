@@ -1,8 +1,8 @@
 import sys
 import pygame
 
-from density import DensityFluidSim
-from looping_circle import LoopingCircle
+from logic.density import DensityFluidSim
+from logic.looping_circle import LoopingCircle
 from utils.colors import colormap
 
 class Game:
@@ -34,7 +34,7 @@ class Game:
         self.font = pygame.font.SysFont(None, 24)
 
         self.DFS = DensityFluidSim(DensityFluidSim.particle_grid(100))
-        self.DFS.set_particles(self.DFS.random_particles(1000))
+        self.DFS.set_particles(self.DFS.generate_random_particles(1000))
 
 
     def handle_events(self):
