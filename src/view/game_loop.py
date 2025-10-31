@@ -1,9 +1,17 @@
+
+import os
 import sys
 import pygame
 
-from logic.density import DensityFluidSim
-from logic.looping_circle import LoopingCircle
-from utils.colors import colormap
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.join(current_dir, '..', '..')
+sys.path.append(project_root)
+
+from src.logic.density import DensityFluidSim
+from src.logic.looping_circle import LoopingCircle
+from src.utils.colors import colormap
+
+print("Finished imports")
 
 class Game:
     fps: int
@@ -34,7 +42,7 @@ class Game:
         self.font = pygame.font.SysFont(None, 24)
 
         self.DFS = DensityFluidSim(DensityFluidSim.particle_grid(100))
-        self.DFS.set_particles(self.DFS.generate_random_particles(1000))
+        self.DFS.set_particles(self.DFS.generate_random_particles(1000, seed=7))
 
 
     def handle_events(self):

@@ -1,7 +1,7 @@
 
 import numpy as np
-from utils.instance import _set_config_attributes
-from utils.sph_kernels import square_kernel, square_kernel_derivative
+from src.utils.instance import _set_config_attributes
+from src.utils.sph_kernels import square_kernel, square_kernel_derivative
 
 """
 
@@ -52,6 +52,9 @@ class DensityFluidSim:
 
         self.set_particles(particles, True, True)
 
+#################################################################################################
+# Properties
+#################################################################################################
 
     @property
     def radius(self) -> float:
@@ -78,7 +81,6 @@ class DensityFluidSim:
             self.grid_width -1,  self.grid_width, self.grid_width +1
         ])
         self.create_neighboring_cells_array()
-        print(self.neighboring_cells)
 
     @property
     def particles(self) -> np.ndarray:
@@ -100,9 +102,9 @@ class DensityFluidSim:
         self.populate_spatial_partition(create_new_list=new_list_for_spatial_partition)
         self.cache_densities(create_new_array=change_amount)
 
-#########################################################################################################################
-# Finished properties
-#########################################################################################################################
+#################################################################################################
+# Methods
+#################################################################################################
 
     def get_partition_index_from_pos(self, point: np.ndarray) -> int:
         """ Get the index in the spatial partition, of the particle. """
@@ -120,8 +122,8 @@ class DensityFluidSim:
             self.spatial_partition_list[cell_index].append(particle_index)
 
     def create_neighboring_cells_array(self):
-        """ Make array where each row are the indices of the cells neighboring the cell of that index """
-        self.neighboring_cells = np.full((self.n_particles, self.N_NEIGHBORS), -1, dtype=np.int32)
+        """ Make array where each row are the indices of the cells neighboring the cell of that index. """
+        self.neighboring_cells = np.full((self.total_cells, self.N_NEIGHBORS), -1, dtype=np.int32)
         for i in range(self.total_cells):
             # neighbor_cell_indices = self.neighbor_offsets + i
             neighbor_cell_indices = [
@@ -148,12 +150,14 @@ class DensityFluidSim:
         """ Calculate the density at the given points. 
         Optimized by only looking at particles in neighboring partitions. """
         neighbor_indices = self.get_neighboring_particle_indices(point)
-
         # if 0 == particles_to_check.size:
         #     return 0.0
         neighbor_particles = self._particles[neighbor_indices]
-
+        print(neighbor_particles)
         diffs = neighbor_particles - point
+        print(point)
+        print(diffs)
+        exit()
         dists = np.linalg.norm(diffs, axis=1)
         linear = np.maximum(0.0, self.radius - dists)
         influences = linear * linear
@@ -194,7 +198,6 @@ class DensityFluidSim:
             size=(num_points, 2)
         )
         return particles
-
 
 #########################################################################################################################
 
