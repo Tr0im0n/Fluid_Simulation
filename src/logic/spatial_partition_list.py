@@ -6,11 +6,11 @@ class SpatialPartitionList:
     """ Can't be changed after instantiation. """
     N_NEIGHBORS = 9
     
-    grid_width: int
-    grid_height: int
-    total_cells: int
+    GRID_WIDTH: int
+    GRID_HEIGHT: int
+    TOTAL_CELLS: int
     
-    neighboring_cells: np.ndarray
+    NEIGHBORING_CELLS_ARRAY: np.ndarray
     
 #########################################################################################################################
 # Special Methods
@@ -18,19 +18,19 @@ class SpatialPartitionList:
     
     def __init__(self,
             particles: np.ndarray,
-            cell_size: int,
+            cell_size: float,
             sim_width: int,
             sim_height: int,
         ):
         
         self._partition_list = []
         
-        self.cell_size = cell_size
-        self.sim_width = sim_width
-        self.sim_height = sim_height
+        self.CELL_SIZE = cell_size
+        self.SIM_WIDTH = sim_width
+        self.SIM_HEIGHT = sim_height
         
-        self.calc_vals()
-        self.create_neighboring_cells_array()
+        self._calc_vals()
+        self._create_neighboring_cells_array()
         self.populate_spatial_partition(particles)
         
         
@@ -42,64 +42,66 @@ class SpatialPartitionList:
         """Returns an iterator over the internal list."""
         return iter(self._partition_list)
 
-#########################################################################################################################
+#################################################################################################
 # Instance Methods
-#########################################################################################################################
+#################################################################################################
     
-    def calc_vals(self) -> None:
-        """ Only used once in the init. """
+    def _calc_vals(self) -> None:
+        """ Only used in the init. """
         # Grid dimensions
-        self.grid_width = int(self.sim_width // self.cell_size)
-        self.grid_height = int(self.sim_height // self.cell_size)
-        self.total_cells = self.grid_width * self.grid_height
+        self.GRID_WIDTH = int(self.SIM_WIDTH // self.CELL_SIZE)
+        self.GRID_HEIGHT = int(self.SIM_HEIGHT // self.CELL_SIZE)
+        self.TOTAL_CELLS = self.GRID_WIDTH * self.GRID_HEIGHT
         # neighbor info
-        self.neighbor_offsets = np.array([
-            -self.grid_width -1, -self.grid_width, -self.grid_width +1,
+        self.NEIGHBOR_OFFSETS = np.array([
+            -self.GRID_WIDTH -1, -self.GRID_WIDTH, -self.GRID_WIDTH +1,
             -1,                 0,              1,
-            self.grid_width -1,  self.grid_width, self.grid_width +1
+            self.GRID_WIDTH -1,  self.GRID_WIDTH, self.GRID_WIDTH +1
         ])
+
+    def _create_neighbor_indices_of_cell(self, cell_index: int):
+        """ Only used in next method. """
+        current_col = cell_index % self.GRID_WIDTH
+        last_col = self.GRID_WIDTH - 1
+        
+        if current_col == 0:
+            offsets = self.NEIGHBOR_OFFSETS[[1, 2, 4, 5, 7, 8]]
+        elif current_col == last_col:
+            offsets = self.NEIGHBOR_OFFSETS[[0, 1, 3, 4, 6, 7]]
+        else:
+            offsets = self.NEIGHBOR_OFFSETS     
+        
+        potential_indices = cell_index + offsets
+        mask = (potential_indices >= 0) & (potential_indices < self.TOTAL_CELLS)
+        return potential_indices[mask]
+
+    def _create_neighboring_cells_array(self):
+        """ Create array where each row are the indices of the cells neighboring the cell of that index. 
+            Only used once in the init. """
+        self.NEIGHBORING_CELLS_ARRAY = np.full((self.TOTAL_CELLS, self.N_NEIGHBORS), -1, dtype=np.int32)
+        for cell_index in range(self.TOTAL_CELLS):
+            neighbor_cell_indices = self._create_neighbor_indices_of_cell(cell_index)
+            n_neighbors = len(neighbor_cell_indices)
+            self.NEIGHBORING_CELLS_ARRAY[cell_index, 0:n_neighbors] = neighbor_cell_indices
         
     def get_partition_index_from_pos(self, point: np.ndarray) -> int:
         """ Get the index in the spatial partition, of the particle. """
-        cell_x = int(point[0] // self.cell_size)
-        cell_y = int(point[1] // self.cell_size)
-        return cell_y * self.grid_width + cell_x
+        cell_x = int(point[0] // self.CELL_SIZE)
+        cell_y = int(point[1] // self.CELL_SIZE)
+        return cell_y * self.GRID_WIDTH + cell_x
 
     def populate_spatial_partition(self, particles: np.ndarray) -> None:
-        """ Only used once in the init. """
+        """ Used in the init. 
+            And can by used outside! """
+        self._partition_list = []
         for particle_index, particle in enumerate(particles):
             cell_index = self.get_partition_index_from_pos(particle)
             self._partition_list[cell_index].append(particle_index)
 
-    def calc_neighbor_indices_of_cell(self, cell_index: int):
-        """ Only used in next method. """
-        current_col = cell_index % self.grid_width
-        last_col = self.grid_width - 1
-        
-        if current_col == 0:
-            offsets = self.neighbor_offsets[[1, 2, 4, 5, 7, 8]]
-        elif current_col == last_col:
-            offsets = self.neighbor_offsets[[0, 1, 3, 4, 6, 7]]
-        else:
-            offsets = self.neighbor_offsets     
-        
-        potential_indices = cell_index + offsets
-        mask = (potential_indices >= 0) & (potential_indices < self.total_cells)
-        return potential_indices[mask]
-
-    def create_neighboring_cells_array(self):
-        """ Create array where each row are the indices of the cells neighboring the cell of that index. 
-            Only used once in the init. """
-        self.neighboring_cells = np.full((self.total_cells, self.N_NEIGHBORS), -1, dtype=np.int32)
-        for cell_index in range(self.total_cells):
-            neighbor_cell_indices = self.calc_neighbor_indices_of_cell(cell_index)
-            n_neighbors = len(neighbor_cell_indices)
-            self.neighboring_cells[cell_index, 0:n_neighbors] = neighbor_cell_indices
-
     def get_neighboring_particle_indices(self, point: np.ndarray) -> np.ndarray:
         """ Returns the indices of the particles in the neighboring partitions. """
         partition_index = self.get_partition_index_from_pos(point)
-        neighbor_cell_indices = self.neighboring_cells[partition_index]
+        neighbor_cell_indices = self.NEIGHBORING_CELLS_ARRAY[partition_index]
         list_of_lists_of_particle_indices = [self._partition_list[i] for i in neighbor_cell_indices]
         # np.concatenate apparently doesn't work with empty lists
         non_empty_lists = [lst for lst in list_of_lists_of_particle_indices if lst]
