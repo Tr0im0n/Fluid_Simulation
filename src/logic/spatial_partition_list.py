@@ -17,22 +17,21 @@ class SpatialPartitionList:
 #########################################################################################################################
     
     def __init__(self,
-            particles: np.ndarray,
+            particles: np.ndarray | None,
             cell_size: float,
             sim_width: int,
             sim_height: int,
         ):
-        
-        self._partition_list = []
         
         self.CELL_SIZE = cell_size
         self.SIM_WIDTH = sim_width
         self.SIM_HEIGHT = sim_height
         
         self._calc_vals()
+        self._partition_list = [list() for _ in range(self.TOTAL_CELLS)]
+        if particles is not None:
+            self.populate(particles)
         self._create_neighboring_cells_array()
-        self.populate_spatial_partition(particles)
-        
         
     def __getitem__(self, key: int):
         """ Allows instance[index] or instance[slice] to access elements of self.main_list. """
@@ -59,7 +58,7 @@ class SpatialPartitionList:
             self.GRID_WIDTH -1,  self.GRID_WIDTH, self.GRID_WIDTH +1
         ])
 
-    def _create_neighbor_indices_of_cell(self, cell_index: int):
+    def _create_neighbor_indices_of_cell(self, cell_index: int) -> np.ndarray:
         """ Only used in next method. """
         current_col = cell_index % self.GRID_WIDTH
         last_col = self.GRID_WIDTH - 1
@@ -75,7 +74,7 @@ class SpatialPartitionList:
         mask = (potential_indices >= 0) & (potential_indices < self.TOTAL_CELLS)
         return potential_indices[mask]
 
-    def _create_neighboring_cells_array(self):
+    def _create_neighboring_cells_array(self) -> None:
         """ Create array where each row are the indices of the cells neighboring the cell of that index. 
             Only used once in the init. """
         self.NEIGHBORING_CELLS_ARRAY = np.full((self.TOTAL_CELLS, self.N_NEIGHBORS), -1, dtype=np.int32)
@@ -90,7 +89,7 @@ class SpatialPartitionList:
         cell_y = int(point[1] // self.CELL_SIZE)
         return cell_y * self.GRID_WIDTH + cell_x
 
-    def populate_spatial_partition(self, particles: np.ndarray) -> None:
+    def populate(self, particles: np.ndarray) -> None:
         """ Used in the init. 
             And can by used outside! """
         self._partition_list = []

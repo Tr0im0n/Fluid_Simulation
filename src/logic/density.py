@@ -1,5 +1,6 @@
 
 import numpy as np
+from logic.spatial_partition_list import SpatialPartitionList
 from src.utils.instance import _set_config_attributes
 from src.utils.sph_kernels import square_kernel, square_kernel_derivative
 
@@ -28,10 +29,9 @@ class DensityFluidSim:
     sim_width: int
     sim_height: int
     mass: float
-    smoothing_radius: float
     target_density: float
     pressure_force_multiplier: float
-    total_cells: int
+    spatial_partition_list: SpatialPartitionList
 
     def __init__(
             self,
@@ -48,12 +48,15 @@ class DensityFluidSim:
         init_args = locals()
         _set_config_attributes(self, init_args, self.DEFAULTS_DICT)
 
-        self.radius = radius if radius is not None else self.DEFAULT_RADIUS
-
-        self.set_particles(particles, True, True)
+        self._radius = radius if radius is not None else self.DEFAULT_RADIUS
+        self._particles = particles
+        self.spatial_partition_list = SpatialPartitionList(self._particles, self._radius, self.sim_width, self.sim_height)
+        
+        self._calc_vals_dependent_on_radius()
+        self._on_particles_change(True, True)
 
 #################################################################################################
-# Properties
+# Properties 
 #################################################################################################
 
     @property
@@ -64,23 +67,15 @@ class DensityFluidSim:
     def radius(self, value: float) -> None: 
         self._radius = value
         self._calc_vals_dependent_on_radius()
+        self.new_spatial_partition()
 
     def _calc_vals_dependent_on_radius(self) -> None:
-        # Grid dimensions
-        self.grid_width = int(self.sim_width / self.radius)
-        self.grid_height = int(self.sim_height / self.radius)
-        self.total_cells = self.grid_width * self.grid_height
-        # Volumes and inverses
+        """ Calculate volumes and inverses. """
         self.volume_of_influence = (self.PI * pow(self.radius, 4)) / 6
         self.inverse_volume = 6.0 / (self.PI * pow(self.radius, 4))
         self.inverse_volume2 = -12.0 / (self.PI * pow(self.radius, 4))
-        # 
-        self.neighbor_offsets = np.array([
-            -self.grid_width -1, -self.grid_width, -self.grid_width +1,
-            -1,                 0,              1,
-            self.grid_width -1,  self.grid_width, self.grid_width +1
-        ])
-        self.create_neighboring_cells_array()
+
+# Particle property ##############################################################################
 
     @property
     def particles(self) -> np.ndarray:
@@ -91,60 +86,25 @@ class DensityFluidSim:
         self._particles = value
         self._on_particles_change(change_amount=True)
 
-    def set_particles(self, value: np.ndarray, change_amount: bool = True, new_list_for_spatial_partition: bool = False) -> None:
+    def set_particles(self, value: np.ndarray, change_amount: bool = True, new_spatial_partition: bool = False) -> None:
         self._particles = value
-        self._on_particles_change(change_amount, new_list_for_spatial_partition)
+        self._on_particles_change(change_amount, new_spatial_partition)
         
-    def _on_particles_change(self, change_amount: bool = False, new_list_for_spatial_partition: bool = False) -> None:
+    def _on_particles_change(self, change_amount: bool = False, new_spatial_partition: bool = False) -> None:
         if change_amount:
             self.n_particles = self._particles.shape[0]
             
-        self.populate_spatial_partition(create_new_list=new_list_for_spatial_partition)
+        self.populate_spatial_partition(create_new_list=new_spatial_partition)
         self.cache_densities(create_new_array=change_amount)
 
 #################################################################################################
 # Methods
 #################################################################################################
 
-    def get_partition_index_from_pos(self, point: np.ndarray) -> int:
-        """ Get the index in the spatial partition, of the particle. """
-        cell_x = int(point[0] // self.radius)
-        cell_y = int(point[1] // self.radius)
-        return cell_y * self.grid_width + cell_x
-
-    def populate_spatial_partition(self, create_new_list: bool = False) -> None:
-        """ Put the particles indices in their correct spatial partition. """
-        if create_new_list:
-            self.spatial_partition_list = [list() for _ in range(self.total_cells)]
-
-        for particle_index, particle in enumerate(self._particles):
-            cell_index = self.get_partition_index_from_pos(particle)
-            self.spatial_partition_list[cell_index].append(particle_index)
-
-    def create_neighboring_cells_array(self):
-        """ Make array where each row are the indices of the cells neighboring the cell of that index. """
-        self.neighboring_cells = np.full((self.total_cells, self.N_NEIGHBORS), -1, dtype=np.int32)
-        for i in range(self.total_cells):
-            # neighbor_cell_indices = self.neighbor_offsets + i
-            neighbor_cell_indices = [
-                i + off
-                for off in self.neighbor_offsets
-                if 0 <= (i + off) < self.total_cells
-            ]
-            n_neighbors = len(neighbor_cell_indices)
-            self.neighboring_cells[i, 0:n_neighbors] = neighbor_cell_indices
-
-    def get_neighboring_particle_indices(self, point: np.ndarray) -> np.ndarray:
-        """ Returns the indices of the particles in the neighboring partitions. """
-        partition_index = self.get_partition_index_from_pos(point)
-        neighbor_cell_indices = self.neighboring_cells[partition_index]
-        list_of_lists_of_particle_indices = [self.spatial_partition_list[i] for i in neighbor_cell_indices]
-        # np.concatenate apparently doesn't work with empty lists
-        non_empty_lists = [lst for lst in list_of_lists_of_particle_indices if lst]
-        if not non_empty_lists:
-            return np.array([], dtype=np.intp)
-        # Could at some point return a floats instead of ints, so might have to .astype(np.int32)
-        return np.concatenate(non_empty_lists, axis=0)
+    def new_spatial_partition(self):
+        """ Make new spatial partition, most likely due to change of influence radius. """ 
+        self.spatial_partition_list = SpatialPartitionList(
+            self._particles, self._radius, self.sim_width, self.sim_height)
 
     def _calc_density_at_point_spatial_partition(self, point: np.ndarray) -> float:
         """ Calculate the density at the given points. 
@@ -224,11 +184,11 @@ class DensityFluidSim:
         return total_force
 
 
-    @staticmethod
-    def particle_grid(amount: int) -> np.ndarray:
+    @classmethod
+    def particle_grid(cls, amount: int) -> np.ndarray:
         """This seems quite shit. """
         side_length = int(np.ceil(np.sqrt(amount)))
-        spacing = DensityFluidSim.DEFAULT_RADIUS * 0.5
+        spacing = cls.DEFAULT_RADIUS * 0.5
         points = []
         for i in range(amount):
             x = (i % side_length) * spacing + spacing
@@ -239,54 +199,6 @@ class DensityFluidSim:
 #########################################################################################################################
     # Depreciated functions
 #########################################################################################################################
-
-    def density_contribution_from_cell(self, point: np.ndarray, cell_index: int) -> float:
-        points_in_cell = self.spatial_partition_list[cell_index]
-        diffs = points_in_cell - point
-        dists = np.linalg.norm(diffs, axis=1)
-        linear = np.maximum(0.0, self.radius - dists)
-        influences = np.power(linear, 2)
-        return float((influences.sum() * self.mass * self.inverse_volume))
-
-    def _density_at_point_loop(self, point: np.ndarray) -> float:
-        total_density = 0.0
-        for other_point in self._particles:
-            distance = float(np.linalg.norm(point - other_point))
-            influence = square_kernel(distance, self._radius, self.inverse_volume)
-            total_density += influence * self.mass
-        return total_density
-
-    def _density_at_point_vector(self, point: np.ndarray) -> float:
-        diffs = self._particles - point
-        dists = np.linalg.norm(diffs, axis=1)
-        linear = np.maximum(0.0, self.radius - dists)
-        influences = np.power(linear, 2)
-        return float(influences.sum() * self.mass * self.inverse_volume)
-
-    def cell_coords_from_index(self, index: int) -> np.ndarray:
-        cell_y = index // self.grid_width
-        cell_x = index % self.grid_width
-        return np.array([cell_x, cell_y], dtype=np.int32)
-        
-    def neighboring_cell_indices(self, point: np.ndarray) -> list[int]:
-        current_index = self.get_partition_index_from_pos(point)
-        neighbor_cell_indices = [
-            current_index + off
-            for off in self.neighbor_offsets
-            if 0 <= (current_index + off) < self.total_cells
-        ]
-        return neighbor_cell_indices
-
-    def generate_random_particles_stack(self, num_points:int) -> np.ndarray:
-        """ I mean read the method name. """
-        max_width = self.sim_width
-        max_height = self.sim_height
-        x_coords = np.random.uniform(low=0, high=max_width, size=num_points)
-        y_coords = np.random.uniform(low=0, high=max_height, size=num_points)
-        return np.stack((x_coords, y_coords), axis=1)
-
-
-
 
 def main():
     particle_grid = DensityFluidSim.particle_grid(10)
