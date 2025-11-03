@@ -4,7 +4,8 @@ import sys
 import pygame
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.join(current_dir, '..', '..')
+project_root_relative = os.path.join(current_dir, '..', '..')
+project_root = os.path.normpath(project_root_relative)
 sys.path.append(project_root)
 
 from src.logic.density import DensityFluidSim
@@ -41,8 +42,8 @@ class Game:
         self.looping_circle = LoopingCircle(width, height)
         self.font = pygame.font.SysFont(None, 24)
 
-        self.DFS = DensityFluidSim(DensityFluidSim.particle_grid(100))
-        self.DFS.set_particles(self.DFS.generate_random_particles(1000, seed=7))
+        self.DFS = DensityFluidSim()
+        # self.DFS.set_particles(self.DFS.generate_random_particles(1000, seed=7))
 
 
     def handle_events(self):

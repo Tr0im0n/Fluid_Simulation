@@ -1,6 +1,6 @@
 
 import numpy as np
-from logic.spatial_partition_list import SpatialPartitionList
+from src.logic.spatial_partition_list import SpatialPartitionList
 from src.utils.instance import _set_config_attributes
 from src.utils.sph_kernels import square_kernel, square_kernel_derivative
 
@@ -15,41 +15,27 @@ https://www.youtube.com/watch?v=rSKMYc1CQHE
 
 class DensityFluidSim:
     PI = np.pi
-    DEFAULT_RADIUS = 50.0
     DIMENSIONS = 2
     N_NEIGHBORS = 9
-    DEFAULTS_DICT = {
-        "sim_width": 800,
-        "sim_height": 600,
-        "mass": 1.0,
-        "target_density": 10.0,
-        "pressure_force_multiplier": 0.5,
-    }
-    # instance attribute annotations so static type checkers know these exist
-    sim_width: int
-    sim_height: int
-    mass: float
-    target_density: float
-    pressure_force_multiplier: float
-    spatial_partition_list: SpatialPartitionList
 
-    def __init__(
-            self,
-            particles: np.ndarray,
-            # All DEFAULTS_DICT keys below:
-            sim_width: int | None = None,
-            sim_height: int | None = None,
-            radius: float | None = None,
-            mass: float | None = None,
-            target_density: float | None = None,
-            pressure_force_multiplier: float | None = None, 
+    def __init__(self,
+            particles: np.ndarray | None = None,
+            sim_width: int = 800,
+            sim_height: int = 600,
+            radius: float = 50.0,
+            mass: float = 1.0,
+            target_density: float = 10.0,
+            pressure_force_multiplier: float = 0.5, 
         ) -> None:
         
-        init_args = locals()
-        _set_config_attributes(self, init_args, self.DEFAULTS_DICT)
-
-        self._radius = radius if radius is not None else self.DEFAULT_RADIUS
-        self._particles = particles
+        self.sim_width = sim_width
+        self.sim_height = sim_height
+        self._radius = radius
+        self.mass = mass
+        self.target_density = target_density
+        self.pressure_force_multiplier = pressure_force_multiplier
+        
+        self._particles = particles if particles is not None else self.generate_random_particles()
         self.spatial_partition_list = SpatialPartitionList(self._particles, self._radius, self.sim_width, self.sim_height)
         
         self._calc_vals_dependent_on_radius()
@@ -91,10 +77,7 @@ class DensityFluidSim:
         self._on_particles_change(change_amount, new_spatial_partition)
         
     def _on_particles_change(self, change_amount: bool = False, new_spatial_partition: bool = False) -> None:
-        if change_amount:
-            self.n_particles = self._particles.shape[0]
-            
-        self.populate_spatial_partition(create_new_list=new_spatial_partition)
+        self.spatial_partition_list.populate(self.particles)
         self.cache_densities(create_new_array=change_amount)
 
 #################################################################################################
@@ -109,7 +92,7 @@ class DensityFluidSim:
     def _calc_density_at_point_spatial_partition(self, point: np.ndarray) -> float:
         """ Calculate the density at the given points. 
         Optimized by only looking at particles in neighboring partitions. """
-        neighbor_indices = self.get_neighboring_particle_indices(point)
+        neighbor_indices = self.spatial_partition_list.get_neighboring_particle_indices(point)
         neighbor_particles = self._particles[neighbor_indices]
         # if 0 == neighbor_particles.size:
         #     return 0.0
@@ -128,7 +111,8 @@ class DensityFluidSim:
     def cache_densities(self, create_new_array: bool = False) -> None:
         """Could be optimized with Numba"""
         if create_new_array:
-            self.cached_densities = np.zeros(self.n_particles, dtype=np.float32)
+            n_particles = self._particles.shape[0]
+            self.cached_densities = np.zeros(n_particles, dtype=np.float32)
 
         self.cached_densities.fill(0.0)
         for i, point in enumerate(self._particles):
@@ -144,7 +128,7 @@ class DensityFluidSim:
             normalized_densities = (self.cached_densities - rho_min) / (rho_max - rho_min)
         return normalized_densities
 
-    def generate_random_particles(self, num_points:int, seed: int = 42) -> np.ndarray:
+    def generate_random_particles(self, num_points:int = 1000, seed: int = 42) -> np.ndarray:
         """ I mean read the method name. """
         np.random.seed(seed)
         max_width, max_height = self.sim_width, self.sim_height
@@ -183,26 +167,12 @@ class DensityFluidSim:
 
         return total_force
 
-
-    @classmethod
-    def particle_grid(cls, amount: int) -> np.ndarray:
-        """This seems quite shit. """
-        side_length = int(np.ceil(np.sqrt(amount)))
-        spacing = cls.DEFAULT_RADIUS * 0.5
-        points = []
-        for i in range(amount):
-            x = (i % side_length) * spacing + spacing
-            y = (i // side_length) * spacing + spacing
-            points.append([x, y])
-        return np.array(points, dtype=np.float32)
-
 #########################################################################################################################
     # Depreciated functions
 #########################################################################################################################
 
 def main():
-    particle_grid = DensityFluidSim.particle_grid(10)
-    DFS = DensityFluidSim(particle_grid)
+    DFS = DensityFluidSim()
     random_particles = DFS.generate_random_particles(1000)
     DFS.set_particles(random_particles)
 

@@ -92,7 +92,6 @@ class SpatialPartitionList:
     def populate(self, particles: np.ndarray) -> None:
         """ Used in the init. 
             And can by used outside! """
-        self._partition_list = []
         for particle_index, particle in enumerate(particles):
             cell_index = self.get_partition_index_from_pos(particle)
             self._partition_list[cell_index].append(particle_index)
