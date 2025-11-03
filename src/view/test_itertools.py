@@ -1,4 +1,5 @@
 
+import math
 import numpy as np
 from itertools import chain
 
@@ -21,9 +22,17 @@ def test_class_indexing():
     # test_instance[2]
 
 
+def test_ceil():
+    a = math.ceil(12.2)
+    print()
+    print(a)
+    print(type(a))
+
+
 def main():
     # test_itertools()
-    test_class_indexing()
+    # test_class_indexing()
+    test_ceil()
 
 
 if __name__ == "__main__":

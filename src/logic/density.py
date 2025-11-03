@@ -15,8 +15,8 @@ https://www.youtube.com/watch?v=rSKMYc1CQHE
 
 class DensityFluidSim:
     PI = np.pi
-    DIMENSIONS = 2
-    N_NEIGHBORS = 9
+    DIMENSIONS: int = 2
+    N_NEIGHBORS: int = 9
 
     def __init__(self,
             particles: np.ndarray | None = None,

@@ -23,7 +23,10 @@ class Game:
         'fps': 60
     }
 
-    def __init__(self, width: int = 800, height: int = 600, fps: int = 60):
+    def __init__(self, 
+            width: int = 800, 
+            height: int = 600, 
+            fps: int = 60):
 
         init_args = locals()
 
@@ -42,7 +45,7 @@ class Game:
         self.looping_circle = LoopingCircle(width, height)
         self.font = pygame.font.SysFont(None, 24)
 
-        self.DFS = DensityFluidSim()
+        self.DFS = DensityFluidSim(None, 790, 590, 45.2)
         # self.DFS.set_particles(self.DFS.generate_random_particles(1000, seed=7))
 
 

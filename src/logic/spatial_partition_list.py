@@ -1,4 +1,5 @@
 
+import math
 import numpy as np
 
 
@@ -48,8 +49,8 @@ class SpatialPartitionList:
     def _calc_vals(self) -> None:
         """ Only used in the init. """
         # Grid dimensions
-        self.GRID_WIDTH = int(self.SIM_WIDTH // self.CELL_SIZE)
-        self.GRID_HEIGHT = int(self.SIM_HEIGHT // self.CELL_SIZE)
+        self.GRID_WIDTH = math.ceil(self.SIM_WIDTH / self.CELL_SIZE)
+        self.GRID_HEIGHT = math.ceil(self.SIM_HEIGHT / self.CELL_SIZE)
         self.TOTAL_CELLS = self.GRID_WIDTH * self.GRID_HEIGHT
         # neighbor info
         self.NEIGHBOR_OFFSETS = np.array([
