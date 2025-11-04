@@ -3,6 +3,8 @@ import os
 import sys
 import pygame
 
+from src.utils.arrays import normalize_array
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root_relative = os.path.join(current_dir, '..', '..')
 project_root = os.path.normpath(project_root_relative)
@@ -61,10 +63,14 @@ class Game:
         self.looping_circle.update(dt)
 
     def draw_particles(self):
-        densities = self.DFS.get_normalized_densities()
+        densities = normalize_array(self.DFS.cached_densities)
         colors = [colormap(density, (0, 0, 255), (255, 255, 255), (255, 0, 0)) for density in densities]
         for point, color in zip(self.DFS.particles, colors):
             pygame.draw.circle(self.screen, color, (int(point[0]), int(point[1])), 3)
+            
+    def draw_density_image(self):
+        density_image = normalize_array(self.DFS.density_image)
+        
 
     def draw_fps(self):
         fps_text = self.font.render(f"FPS: {int(self.clock.get_fps())}", True, (200, 200, 200))
@@ -94,4 +100,5 @@ def main():
 
 
 if __name__ == "__main__":
+    print("Start game loop")
     main()
