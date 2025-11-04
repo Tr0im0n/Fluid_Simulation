@@ -1,7 +1,10 @@
 
 import math
 import numpy as np
+import pygame
 from itertools import chain
+
+from src.utils.colors import colormap_array_BWR
 
 
 class TestClass:
@@ -27,13 +30,34 @@ def test_ceil():
     print()
     print(a)
     print(type(a))
+    
+
+def test_font():
+    pygame.font.init()
+    available_fonts = pygame.font.get_fonts()
+    print(available_fonts)
+    
+    
+def test_colormap():
+    color = colormap_array_BWR(np.zeros((2, 2), dtype=np.float32))
+    print(color)
+
+
+def test_array_indexing():
+    a = np.arange(6)
+    a.shape = (3, 2)
+    print(a)
+    print(a[0, 1])
 
 
 def main():
     # test_itertools()
     # test_class_indexing()
-    test_ceil()
-
+    # test_ceil()
+    # test_font()
+    # test_colormap()
+    test_array_indexing()
+    
 
 if __name__ == "__main__":
     main()

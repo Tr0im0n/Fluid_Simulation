@@ -1,8 +1,9 @@
 
 import numpy as np
+from numpy.typing import NDArray
 
 
-def create_coordinate_array(width: int, height: int) -> np.ndarray:
+def create_coordinate_array(width: int, height: int) -> NDArray[np.int32]:
     if height <= 0 or width <= 0:
         raise ValueError("Height and width must be positive integers.")
     
@@ -11,7 +12,7 @@ def create_coordinate_array(width: int, height: int) -> np.ndarray:
     
     X_coords, Y_coords = np.meshgrid(cols, rows)
     
-    return np.stack([Y_coords, X_coords], axis=2)
+    return np.stack([X_coords, Y_coords], axis=2, dtype=np.int32)
 
 
 def normalize_array(array: np.ndarray) -> np.ndarray:

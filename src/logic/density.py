@@ -132,29 +132,28 @@ class DensityFluidSim:
 #########################################################################################################################
 
     def create_density_image(self) -> np.ndarray:
-        image = np.zeros((self.sim_height, self.sim_width))
+        image = np.zeros((self.sim_height, self.sim_width), dtype=np.float32)
         # get the influence image of one particle
         # add that to the image
         # Literal edge cases where the influence image is not 9 cells
         # for i, particles in self.spatial_partition_list:
         #     neighbor_cells = self.spatial_partition_list.NEIGHBORING_CELLS_ARRAY[i]
-        ceil_radius = math.ceil(self._radius)
         coordinate_array = create_coordinate_array(self.sim_width, self.sim_height)
         for particle in self._particles:
-            min_x = max(0, particle[0] - ceil_radius)
-            max_x = min(self.sim_width, particle[0] + ceil_radius)
-            min_y = max(0, particle[1] - ceil_radius)
-            max_y = min(self.sim_height, particle[1] + ceil_radius)
+            min_x = max(0, math.ceil(particle[0] - self._radius))
+            max_x = min(self.sim_width, math.floor(particle[0] + self._radius))
+            min_y = max(0, math.ceil(particle[1] - self._radius))
+            max_y = min(self.sim_height, math.floor(particle[1] + self._radius))
             
-            influence_area = coordinate_array[min_x:max_x, min_y:max_y]
+            influence_area = coordinate_array[min_y:max_y, min_x:max_x]
             diffs = influence_area - particle
             dists = np.linalg.norm(diffs, axis=2)
             linear = np.maximum(0.0, self.radius - dists)
             influences = pow(linear, 2) * self.mass * self.inverse_volume
  
-            image[min_x:max_x, min_y:max_y] += influences
+            image[min_y:max_y, min_x:max_x] += influences
         return image
-            
+
 
     def calc_pressure_force_for_index(self, index: int) -> np.ndarray:
         point = self._particles[index]

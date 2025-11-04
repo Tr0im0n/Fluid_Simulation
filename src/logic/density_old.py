@@ -285,8 +285,23 @@ class DensityFluidSim:
         y_coords = np.random.uniform(low=0, high=max_height, size=num_points)
         return np.stack((x_coords, y_coords), axis=1)
 
+"""
+  
+    def draw_density_image(self) -> None:
+        print("I am in draw density image")
+        density_image = normalize_array(self.DFS.density_image)
+        # this looks fucking cool
+        color_func_vectorized = np.vectorize(colormap_RWB, signature='(f4)->(3u1)')
+        print("Until here")
+        try:
+            rgb_array = color_func_vectorized(density_image)
+        except Exception as e:
+            print(e)
+        print(rgb_array)
+        image_surface = pygame.surfarray.make_surface(rgb_array)
+        self.screen.blit(image_surface, (0, 0))
 
-
+"""
 
 def main():
     particle_grid = DensityFluidSim.particle_grid(10)
