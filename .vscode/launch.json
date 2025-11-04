@@ -1,0 +1,29 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Custom Thingy: file",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Custom Thingy: test_itertools",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.view.test_itertools",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Custom Thingy: game_loop",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.view.game_loop",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

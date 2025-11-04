@@ -53,7 +53,6 @@ class Game:
         self.looping_circle.update(dt)
 
     def draw_particles(self):
-        densities = normalize_array(self.DFS.cached_densities)
         for point in self.DFS.particles:
             pygame.draw.circle(self.screen, (0, 0, 0), (int(point[0]), int(point[1])), 1)
             
@@ -64,13 +63,21 @@ class Game:
             pygame.draw.circle(self.screen, color, (int(point[0]), int(point[1])), 3)
             
     def draw_density_image(self) -> None:
+        t1 = pygame.time.get_ticks()
         density_image = normalize_array(self.DFS.density_image)
-        # this looks fucking cool
-        # color_func_vectorized = np.vectorize(colormap_RWB, signature='(f4)->(3u1)')
+        t2 = pygame.time.get_ticks()
         rgb_array = colormap_array_BWR(density_image)
+        t3 = pygame.time.get_ticks()
         transposed_rgb_array = rgb_array.transpose(1, 0, 2)
+        t4 = pygame.time.get_ticks()
         image_surface = pygame.surfarray.make_surface(transposed_rgb_array)
+        t5 = pygame.time.get_ticks()
         self.screen.blit(image_surface, (0, 0))
+        t6 = pygame.time.get_ticks()
+        times = [t1, t2, t3, t4, t5, t6]
+        dts = [times[i+1] - times[i] for i in range(5)]
+        print(*dts)
+        # print(f"draw_density_image time: {t2-t1:.2f}")
 
     def draw_fps(self):
         current_fps = self.clock.get_fps()
