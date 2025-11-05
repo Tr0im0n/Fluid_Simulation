@@ -1,6 +1,8 @@
 
 import numpy as np
 from numpy.typing import NDArray
+import matplotlib.pyplot as plt
+import matplotlib.cm
 
 
 RED   = np.array([255, 0, 0], dtype=np.uint8)
@@ -62,3 +64,27 @@ def colormap_array_BWR(normalized_array: NDArray[np.float32]) -> NDArray[np.uint
     rgb_array[mask_wr] = FLOAT_WHITE + t_wr[:, None] * (FLOAT_RED - FLOAT_WHITE)
 
     return rgb_array.astype(np.uint8)
+
+
+def colormap_array_BWR_optimized(normalized_array: NDArray[np.float32]) -> NDArray[np.uint8]:
+    """Doesn't seem to work"""
+    norm = normalized_array[..., None]
+    
+    t_bw = np.clip(norm * 2.0, 0.0, 1.0)
+    t_wr = np.clip((norm - 0.5) * 2.0, 0.0, 1.0)
+    
+    color_bw = FLOAT_BLUE * (1.0 - t_bw) + FLOAT_WHITE * t_bw
+    color_wr = FLOAT_WHITE * (1.0 - t_wr) + FLOAT_RED * t_wr
+    
+    mask_bw = normalized_array <= 0.5
+    mask_bw_3ch = mask_bw[..., None]
+    
+    rgb_array_float = np.where(mask_bw_3ch, color_bw, color_wr)
+    return (rgb_array_float).astype(np.uint8) #  * 255
+
+
+def colormap_array_mpl(normalized_array: NDArray[np.float32]) -> NDArray[np.uint8]:
+    cm = matplotlib.cm.get_cmap("coolwarm")
+    result = cm(normalized_array)
+    return (result[..., :3] * 255).astype(np.uint8)
+

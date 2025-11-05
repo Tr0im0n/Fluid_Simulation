@@ -11,7 +11,7 @@ sys.path.append(project_root)
 
 from src.logic.density import DensityFluidSim
 from src.logic.looping_circle import LoopingCircle
-from src.utils.colors import BLACK, colormap, colormap_RWB, DARKGRAY, colormap_array_BWR
+from src.utils.colors import BLACK, colormap, colormap_RWB, DARKGRAY, colormap_array_BWR, colormap_array_BWR_optimized, colormap_array_mpl
 from src.utils.arrays import normalize_array
 
 print("Finished imports")
@@ -54,7 +54,7 @@ class Game:
 
     def draw_particles(self):
         for point in self.DFS.particles:
-            pygame.draw.circle(self.screen, (0, 0, 0), (int(point[0]), int(point[1])), 1)
+            pygame.draw.circle(self.screen, (0, 0, 0), (int(point[0]), int(point[1])), 2)
             
     def draw_particles_color_density(self):
         densities = normalize_array(self.DFS.cached_densities)
@@ -63,21 +63,11 @@ class Game:
             pygame.draw.circle(self.screen, color, (int(point[0]), int(point[1])), 3)
             
     def draw_density_image(self) -> None:
-        t1 = pygame.time.get_ticks()
         density_image = normalize_array(self.DFS.density_image)
-        t2 = pygame.time.get_ticks()
-        rgb_array = colormap_array_BWR(density_image)
-        t3 = pygame.time.get_ticks()
+        rgb_array = colormap_array_mpl(density_image)
         transposed_rgb_array = rgb_array.transpose(1, 0, 2)
-        t4 = pygame.time.get_ticks()
         image_surface = pygame.surfarray.make_surface(transposed_rgb_array)
-        t5 = pygame.time.get_ticks()
         self.screen.blit(image_surface, (0, 0))
-        t6 = pygame.time.get_ticks()
-        times = [t1, t2, t3, t4, t5, t6]
-        dts = [times[i+1] - times[i] for i in range(5)]
-        print(*dts)
-        # print(f"draw_density_image time: {t2-t1:.2f}")
 
     def draw_fps(self):
         current_fps = self.clock.get_fps()
@@ -121,3 +111,28 @@ def main():
 if __name__ == "__main__":
     print("Start game loop")
     main()
+
+
+"""
+
+   
+    def draw_density_image(self) -> None:
+        t1 = pygame.time.get_ticks()
+        density_image = normalize_array(self.DFS.density_image)
+        t2 = pygame.time.get_ticks()
+        rgb_array = colormap_array_mpl(density_image)
+        t3 = pygame.time.get_ticks()
+        transposed_rgb_array = rgb_array.transpose(1, 0, 2)
+        t4 = pygame.time.get_ticks()
+        image_surface = pygame.surfarray.make_surface(transposed_rgb_array)
+        t5 = pygame.time.get_ticks()
+        self.screen.blit(image_surface, (0, 0))
+        t6 = pygame.time.get_ticks()
+        times = [t1, t2, t3, t4, t5, t6]
+        dts = [times[i+1] - times[i] for i in range(5)]
+        print(*dts)
+
+
+
+"""
+
