@@ -5,21 +5,21 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Custom Thingy: file",
+            "name": "Current file",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "cwd": "${workspaceFolder}"
         },
         {
-            "name": "Custom Thingy: test_itertools",
+            "name": "test_itertools",
             "type": "debugpy",
             "request": "launch",
             "module": "src.view.test_itertools",
             "cwd": "${workspaceFolder}"
         },
         {
-            "name": "Custom Thingy: game_loop",
+            "name": "game_loop",
             "type": "debugpy",
             "request": "launch",
             "module": "src.view.game_loop",

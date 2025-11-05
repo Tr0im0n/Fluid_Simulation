@@ -285,6 +285,8 @@ class DensityFluidSim:
         y_coords = np.random.uniform(low=0, high=max_height, size=num_points)
         return np.stack((x_coords, y_coords), axis=1)
 
+
+
 """
   
     def draw_density_image(self) -> None:
@@ -300,6 +302,33 @@ class DensityFluidSim:
         print(rgb_array)
         image_surface = pygame.surfarray.make_surface(rgb_array)
         self.screen.blit(image_surface, (0, 0))
+        
+        
+    def calc_density_at_point(self, point: np.ndarray) -> float:
+        # Calculate the density at the given points. 
+        # Optimized by only looking at particles in neighboring partitions. 
+        neighbor_indices = self.spatial_partition_list.get_neighboring_particle_indices(point)
+        neighbor_particles = self._particles[neighbor_indices]
+        # if 0 == neighbor_particles.size:
+        #     return 0.0
+        diffs = neighbor_particles - point
+        dists = np.linalg.norm(diffs, axis=1)
+        linear = np.maximum(0.0, self.radius - dists)
+        influences = linear * linear
+
+        return influences.sum() * self.mass * self.inverse_volume
+
+    def cache_densities(self, create_new_array: bool = False) -> None:
+        # Could be optimized with Numba
+        if create_new_array:
+            n_particles = self._particles.shape[0]
+            self.cached_densities = np.zeros(n_particles, dtype=np.float32)
+        else:
+            self.cached_densities.fill(0.0)
+        
+        for i, point in enumerate(self._particles):
+            self.cached_densities[i] = self.calc_density_at_point(point)
+
 
 """
 

@@ -38,7 +38,6 @@ class Game:
         self.font = pygame.font.SysFont("arial", 24)
 
         self.DFS = DensityFluidSim(None, 790, 590, 45.2)
-        # self.DFS.set_particles(self.DFS.generate_random_particles(1000, seed=7))
 
 
     def handle_events(self):
@@ -57,7 +56,7 @@ class Game:
             pygame.draw.circle(self.screen, (0, 0, 0), (int(point[0]), int(point[1])), 2)
             
     def draw_particles_color_density(self):
-        densities = normalize_array(self.DFS.cached_densities)
+        densities = normalize_array(self.DFS.densities_of_particles)
         colors = [colormap(density, (0, 0, 255), (255, 255, 255), (255, 0, 0)) for density in densities]
         for point, color in zip(self.DFS.particles, colors):
             pygame.draw.circle(self.screen, color, (int(point[0]), int(point[1])), 3)

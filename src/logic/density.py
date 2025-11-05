@@ -37,12 +37,12 @@ class DensityFluidSim:
         self.target_density = target_density
         self.pressure_force_multiplier = pressure_force_multiplier
         
-        self._particles = particles if particles is not None else self.generate_random_particles()
+        self._particles = particles if particles is not None else self.generate_random_particles(1000, self.sim_width, self.sim_height)
         self.spatial_partition_list = SpatialPartitionList(self._particles, self._radius, self.sim_width, self.sim_height)
         
         self._calc_vals_dependent_on_radius()
         
-        self.cache_densities(True)
+        self.update_densities(True)
         
         self.density_image = self.create_density_image()
 
@@ -83,45 +83,47 @@ class DensityFluidSim:
         
     def _on_particles_change(self, change_amount: bool = False) -> None:
         self.spatial_partition_list.populate(self.particles)
-        self.cache_densities(create_new_array=change_amount)
+        self.update_densities(create_new_array=change_amount)
 
 #################################################################################################
-# Methods
+# Instance Methods
 #################################################################################################
 
     def new_spatial_partition(self):
         """ Make new spatial partition, most likely due to change of influence radius. """ 
         self.spatial_partition_list = SpatialPartitionList(
             self._particles, self._radius, self.sim_width, self.sim_height)
-
-    def calc_density_at_point(self, point: np.ndarray) -> float:
-        """ Calculate the density at the given points. 
-        Optimized by only looking at particles in neighboring partitions. """
-        neighbor_indices = self.spatial_partition_list.get_neighboring_particle_indices(point)
-        neighbor_particles = self._particles[neighbor_indices]
-        # if 0 == neighbor_particles.size:
-        #     return 0.0
-        diffs = neighbor_particles - point
-        dists = np.linalg.norm(diffs, axis=1)
-        linear = np.maximum(0.0, self.radius - dists)
-        influences = linear * linear
-
-        return influences.sum() * self.mass * self.inverse_volume
-
-    def cache_densities(self, create_new_array: bool = False) -> None:
-        """Could be optimized with Numba"""
+        
+    def update_densities(self, create_new_array: bool = False) -> None:
+        """ Check if we need to make a new array. Needed if we add more particles.
+            Call function to change the density in place"""
         if create_new_array:
             n_particles = self._particles.shape[0]
-            self.cached_densities = np.zeros(n_particles, dtype=np.float32)
+            self.densities_of_particles = np.zeros(n_particles, dtype=np.float32)
+        else:
+            self.densities_of_particles.fill(0.0)
+            
+        self.calc_densities(self.densities_of_particles, self._particles, self.spatial_partition_list,
+                            self._radius, self.inverse_volume, self.mass)
 
-        self.cached_densities.fill(0.0)
-        for i, point in enumerate(self._particles):
-            self.cached_densities[i] = self.calc_density_at_point(point)
+    def create_density_image(self) -> np.ndarray:
+        """
+        get the influence image of one particle
+        add that to the image
+        """
+        return self.calc_density_image(self._particles, self.sim_width, self.sim_height, 
+                                       self._radius, self.inverse_volume, self.mass)
 
-    def generate_random_particles(self, num_points:int = 1000, seed: int = 42) -> np.ndarray:
+#################################################################################################
+# Static Methods
+#################################################################################################
+
+    @staticmethod
+    def generate_random_particles(num_points:int = 1000, max_width: float = 100., 
+                                  max_height: float = 100., seed: int = 42) -> np.ndarray:
         """ I mean read the method name. """
         np.random.seed(seed)
-        max_width, max_height = self.sim_width, self.sim_height
+        # max_width, max_height = self.sim_width, self.sim_height
         particles = np.random.uniform(
             low=[0, 0], 
             high=[max_width, max_height], 
@@ -129,35 +131,75 @@ class DensityFluidSim:
         )
         return particles
 
-#########################################################################################################################
+    @staticmethod
+    def calc_densities(cached_densities: np.ndarray, particles: np.ndarray, spl: SpatialPartitionList,
+                       radius: float = 40., inverse_volume: float = 1., mass: float = 1.) -> None:
+        """
+        In place for speed.
+        Could be optimized with Numba.
+        """
+        for i, point in enumerate(particles):
+            cell_index = spl.get_partition_index_from_pos(point)
+            neighbor_indices = spl.cell_to_particle_neighbors[cell_index]
+            neighbor_particles = particles[neighbor_indices]
+            # if 0 == neighbor_particles.size:
+            #     return 0.0
+            diffs = neighbor_particles - point
+            dists = np.linalg.norm(diffs, axis=1)
+            linear = np.maximum(0.0, radius - dists)
+            influences = linear * linear
 
-    def create_density_image(self) -> np.ndarray:
-        image = np.zeros((self.sim_height, self.sim_width), dtype=np.float32)
-        # get the influence image of one particle
-        # add that to the image
-        # Literal edge cases where the influence image is not 9 cells
-        # for i, particles in self.spatial_partition_list:
-        #     neighbor_cells = self.spatial_partition_list.NEIGHBORING_CELLS_ARRAY[i]
-        coordinate_array = create_coordinate_array(self.sim_width, self.sim_height)
-        for particle in self._particles:
-            min_x = max(0, math.ceil(particle[0] - self._radius))
-            max_x = min(self.sim_width, math.floor(particle[0] + self._radius))
-            min_y = max(0, math.ceil(particle[1] - self._radius))
-            max_y = min(self.sim_height, math.floor(particle[1] + self._radius))
+            cached_densities[i] = influences.sum() * mass * inverse_volume
+    
+    @staticmethod
+    def calc_density_image(particles: np.ndarray, sim_width: int, sim_height: int, 
+                             radius: float, inverse_volume: float, mass: float|int = 1) -> np.ndarray:
+        """
+        get the influence image of one particle
+        add that to the image
+        """
+        image = np.zeros((sim_height, sim_width), dtype=np.float32)
+        coordinate_array = create_coordinate_array(sim_width, sim_height)
+        
+        for particle in particles:
+            min_x = max(0, math.ceil(particle[0] - radius))
+            max_x = min(sim_width, math.floor(particle[0] + radius))
+            min_y = max(0, math.ceil(particle[1] - radius))
+            max_y = min(sim_height, math.floor(particle[1] + radius))
             
             influence_area = coordinate_array[min_y:max_y, min_x:max_x]
             diffs = influence_area - particle
             dists = np.linalg.norm(diffs, axis=2)
-            linear = np.maximum(0.0, self.radius - dists)
-            influences = pow(linear, 2) * self.mass * self.inverse_volume
+            linear = np.maximum(0.0, radius - dists)
+            influences = pow(linear, 2) * mass * inverse_volume
  
             image[min_y:max_y, min_x:max_x] += influences
         return image
+    
+#########################################################################################################################
 
+    def calc_density_gradient_at_point(self):
+        print(2)
+
+    def calc_density_gradient(self, particles: np.ndarray, spl: SpatialPartitionList, radius: float, 
+                              cached_densities: np.ndarray, mass: float, inverse_volume: float):
+        
+        for i, point in enumerate(particles):
+            cell_index = spl.get_partition_index_from_pos(point)
+            neighbor_indices = spl.cell_to_particle_neighbors[cell_index]
+            neighbor_particles = particles[neighbor_indices]
+            # if 0 == neighbor_particles.size:
+            #     return 0.0
+            diffs = neighbor_particles - point
+            dists = np.linalg.norm(diffs, axis=1)
+            linear = np.maximum(0.0, radius - dists)
+            influences = linear * linear
+
+            cached_densities[i] = influences.sum() * mass * inverse_volume
 
     def calc_pressure_force_for_index(self, index: int) -> np.ndarray:
         point = self._particles[index]
-        density = self.cached_densities[index]
+        density = self.densities_of_particles[index]
 
         total_force = np.zeros(2, dtype=np.float32)
 
@@ -171,7 +213,7 @@ class DensityFluidSim:
             direction = diff / distance
             influence_derivative = square_kernel_derivative(distance, self._radius, self.inverse_volume2)
 
-            other_density = self.cached_densities[j]
+            other_density = self.densities_of_particles[j]
             
 
             pressure_term = (density + other_density - 2 * self.target_density) * self.pressure_force_multiplier
@@ -187,8 +229,6 @@ class DensityFluidSim:
 
 def main():
     DFS = DensityFluidSim()
-    random_particles = DFS.generate_random_particles(1000)
-    DFS.set_particles(random_particles)
 
 
 if __name__ == "__main__":
