@@ -103,7 +103,7 @@ class DensityFluidSim:
         else:
             self.densities_of_particles.fill(0.0)
             
-        self.calc_densities(self.densities_of_particles, self._particles, self.spatial_partition_list,
+        self.calc_densities_1loop(self.densities_of_particles, self._particles, self.spatial_partition_list,
                             self._radius, self.inverse_volume, self.mass)
 
     def create_density_image(self) -> np.ndarray:
@@ -132,24 +132,76 @@ class DensityFluidSim:
         return particles
 
     @staticmethod
-    def calc_densities(cached_densities: np.ndarray, particles: np.ndarray, spl: SpatialPartitionList,
+    def calc_densities_1loop(cached_densities: np.ndarray, particles: np.ndarray, spl: SpatialPartitionList,
                        radius: float = 40., inverse_volume: float = 1., mass: float = 1.) -> None:
         """
         In place for speed.
         Could be optimized with Numba.
         """
+        max_size = max(arr.size for arr in spl.cell_to_particle_neighbors)
+        buffer1d = np.empty((max_size,), dtype=np.float32)
+        buffer2d = np.empty((max_size, 2), dtype=np.float32)
+        
         for i, point in enumerate(particles):
             cell_index = spl.get_partition_index_from_pos(point)
             neighbor_indices = spl.cell_to_particle_neighbors[cell_index]
-            neighbor_particles = particles[neighbor_indices]
+            
+            current_length = neighbor_indices.size
+            b1d = buffer1d[:current_length]
+            b2d = buffer2d[:current_length]
+            
+            np.take(particles, neighbor_indices, axis=0, out=b2d) # neighbor_particles
             # if 0 == neighbor_particles.size:
-            #     return 0.0
-            diffs = neighbor_particles - point
-            dists = np.linalg.norm(diffs, axis=1)
-            linear = np.maximum(0.0, radius - dists)
-            influences = linear * linear
+            #     return 0.0    
+            b2d -= point # diffs
+            
+            # buffer1d[:current_length] = np.linalg.norm(buffer2d[:current_length], axis=1) # dists
+            np.square(b2d, out=b2d)
+            np.sum(b2d, axis=1, out=b1d)
+            np.sqrt(b1d, out=b1d)
+            
+            np.maximum(0.0, radius - b1d, out=b1d) # linear
+            b1d *= b1d # influence
 
-            cached_densities[i] = influences.sum() * mass * inverse_volume
+            cached_densities[i] = b1d.sum() * mass * inverse_volume
+            
+    @staticmethod
+    def calc_densities_vectorized(cached_densities: np.ndarray, particles: np.ndarray, spl: SpatialPartitionList,
+                                  radius: float = 40., inverse_volume: float = 1., mass: float = 1.) -> None:
+        """
+        In place for speed.
+        Could be optimized with Numba.
+        """
+        max_size = max(arr.size for arr in spl.cell_to_particle_neighbors)
+        
+        
+        
+        
+        buffer1d = np.empty((max_size,), dtype=np.float32)
+        buffer2d = np.empty((max_size, 2), dtype=np.float32)
+        
+        for i, point in enumerate(particles):
+            cell_index = spl.get_partition_index_from_pos(point)
+            neighbor_indices = spl.cell_to_particle_neighbors[cell_index]
+            
+            current_length = neighbor_indices.size
+            b1d = buffer1d[:current_length]
+            b2d = buffer2d[:current_length]
+            
+            np.take(particles, neighbor_indices, axis=0, out=b2d) # neighbor_particles
+            # if 0 == neighbor_particles.size:
+            #     return 0.0    
+            b2d -= point # diffs
+            
+            # buffer1d[:current_length] = np.linalg.norm(buffer2d[:current_length], axis=1) # dists
+            np.square(b2d, out=b2d)
+            np.sum(b2d, axis=1, out=b1d)
+            np.sqrt(b1d, out=b1d)
+            
+            np.maximum(0.0, radius - b1d, out=b1d) # linear
+            b1d *= b1d # influence
+
+            cached_densities[i] = b1d.sum() * mass * inverse_volume
     
     @staticmethod
     def calc_density_image(particles: np.ndarray, sim_width: int, sim_height: int, 

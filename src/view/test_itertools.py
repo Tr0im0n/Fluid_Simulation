@@ -4,8 +4,6 @@ import numpy as np
 import pygame
 from itertools import chain
 
-from src.utils.colors import colormap_array_BWR
-
 
 class TestClass:
     def __init_(self):
@@ -39,6 +37,8 @@ def test_font():
     
     
 def test_colormap():
+    from src.utils.colors import colormap_array_BWR
+
     color = colormap_array_BWR(np.zeros((2, 2), dtype=np.float32))
     print(color)
 
@@ -48,6 +48,13 @@ def test_array_indexing():
     a.shape = (3, 2)
     print(a)
     print(a[0, 1])
+    
+
+def test_np_type():
+    a = np.array([1, 2], dtype=np.float32)
+    b = a[0]
+    c = b.astype(np.int32)
+    print(type(c))
 
 
 def main():
@@ -56,7 +63,8 @@ def main():
     # test_ceil()
     # test_font()
     # test_colormap()
-    test_array_indexing()
+    # test_array_indexing()
+    test_np_type()
     
 
 if __name__ == "__main__":

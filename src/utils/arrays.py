@@ -22,3 +22,16 @@ def normalize_array(array: np.ndarray) -> np.ndarray:
     if max_val == min_val:
         return np.full_like(array, 0.5)
     return (array - min_val) / (max_val - min_val)
+
+
+def norm_ip(buffer2d: np.ndarray, buffer1d: np.ndarray):
+    """Calcs the norm of buffer2d and puts into buffer1d"""
+    if buffer1d.ndim != 1:
+        raise Exception("buffer1d is not, in fact, 1d")
+    if buffer2d.ndim != 2:
+        raise Exception("buffer2d is not, in fact, 2d")
+    if buffer1d.shape[0] != buffer2d.shape[0]:
+        raise IndexError("Arrays aren't of same size")
+    np.square(buffer2d, out=buffer2d)
+    np.sum(buffer2d, axis=1, out=buffer1d)
+    np.sqrt(buffer1d, out=buffer1d)

@@ -29,11 +29,11 @@ class SpatialPartitionList:
         
         grid_vals = self.calculate_grid_vals(sim_width, sim_height, cell_size)
         self.grid_width, self.grid_height, self.total_cells, self.neighbor_offsets = grid_vals
+        self.create_neighboring_cells_array()
         
         self._partition_list = [list() for _ in range(self.total_cells)]
         if particles is not None:
             self.populate(particles)
-        self.create_neighboring_cells_array()
         self.create_neighboring_particles_array()
         
     def __getitem__(self, key: int):
@@ -66,6 +66,7 @@ class SpatialPartitionList:
         for particle_index, particle in enumerate(particles):
             cell_index = self.get_partition_index_from_pos(particle)
             self._partition_list[cell_index].append(particle_index)
+        self.create_neighboring_particles_array()
     
     def create_neighboring_particles_array(self) -> None:
         """set self.CELL_TO_PARTICLE_NEIGHBORS"""

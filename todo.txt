@@ -1,0 +1,20 @@
+
+
+
+in densities.calc_densities
+line 148
+
+max_size same
+array with all point to cell indices
+
+array with all point to point neighbor indices
+
+take all points at given indices
+
+
+
+
+
+
+
+
