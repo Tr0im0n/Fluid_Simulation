@@ -1,7 +1,7 @@
 
 import numpy as np
 from src.utils.instance import _set_config_attributes
-from src.utils.sph_kernels import square_kernel, square_kernel_derivative
+from src.utils.sph_kernels import square_kernel, linear_kernel
 
 """
 
@@ -211,7 +211,7 @@ class DensityFluidSim:
             if distance > self.radius or distance == 0:
                 continue
             direction = diff / distance
-            influence_derivative = square_kernel_derivative(distance, self._radius, self.inverse_volume2)
+            influence_derivative = linear_kernel(distance, self._radius, self.inverse_volume2)
 
             other_density = self.cached_densities[j]
             

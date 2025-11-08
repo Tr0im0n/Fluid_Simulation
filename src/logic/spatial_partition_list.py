@@ -34,7 +34,6 @@ class SpatialPartitionList:
         self._partition_list = [list() for _ in range(self.total_cells)]
         if particles is not None:
             self.populate(particles)
-        self.create_neighboring_particles_array()
         
     def __getitem__(self, key: int):
         """ Allows instance[index] or instance[slice] to access elements of self.main_list. """
@@ -98,7 +97,7 @@ class SpatialPartitionList:
         return grid_width, grid_height, total_cells, neighbor_offsets
     
     @staticmethod
-    def calc_neighbor_indices_of_cell(cell_index: int, neighbor_offsets: np.ndarray, grid_width: int, total_cells) -> np.ndarray:
+    def calc_neighbor_indices_of_cell(cell_index: int, neighbor_offsets: NDArray[np.int32], grid_width: int, total_cells: int) -> NDArray[np.int32]:
         """ Only used in next method. """
         current_col = cell_index % grid_width
         last_col = grid_width - 1
@@ -115,7 +114,7 @@ class SpatialPartitionList:
         return potential_indices[mask]
 
     @classmethod
-    def calc_cell_to_cell_neighbors(cls, neighbor_offsets: np.ndarray, grid_width: int, total_cells) -> np.ndarray:
+    def calc_cell_to_cell_neighbors(cls, neighbor_offsets: NDArray[np.int32], grid_width: int, total_cells: int) -> NDArray[np.int32]:
         """ Create array where each row are the indices of the cells neighboring the cell of that index. """
         n_neighbors = cls.N_NEIGHBORS
         answer = np.full((total_cells, n_neighbors), -1, dtype=np.int32)
@@ -130,11 +129,10 @@ class SpatialPartitionList:
                                        cell_to_cell_neighbors: NDArray[np.int32]) -> list[NDArray[np.int32]]:
         """ Returns the indices of the particles in the neighboring partitions. """
         result = [
-            np.array([
-                particle_index
-                for cell_index in neighbor_group
-                for particle_index in spl[cell_index]
-            ], dtype=np.int32)
+            np.concatenate(
+                [np.asarray(spl[cell_index], dtype=np.int32)
+                    for cell_index in neighbor_group]
+            )
             for neighbor_group in cell_to_cell_neighbors
         ]
         return result

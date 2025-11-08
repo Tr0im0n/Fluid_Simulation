@@ -4,7 +4,7 @@ import numpy as np
 from src.logic.spatial_partition_list import SpatialPartitionList
 from src.utils.arrays import create_coordinate_array
 from src.utils.instance import _set_config_attributes
-from src.utils.sph_kernels import square_kernel, square_kernel_derivative
+from src.utils.sph_kernels import square_kernel, linear_kernel
 
 """
 
@@ -153,14 +153,14 @@ class DensityFluidSim:
             np.take(particles, neighbor_indices, axis=0, out=b2d) # neighbor_particles
             # if 0 == neighbor_particles.size:
             #     return 0.0    
-            b2d -= point # diffs
+            b2d -= point # diffs # vector from center to point
             
             # buffer1d[:current_length] = np.linalg.norm(buffer2d[:current_length], axis=1) # dists
             np.square(b2d, out=b2d)
             np.sum(b2d, axis=1, out=b1d)
-            np.sqrt(b1d, out=b1d)
+            np.sqrt(b1d, out=b1d) # distance, from center to point
             
-            np.maximum(0.0, radius - b1d, out=b1d) # linear
+            np.maximum(0.0, radius - b1d, out=b1d) # linear # save this, its also the gradient * 2
             b1d *= b1d # influence
 
             cached_densities[i] = b1d.sum() * mass * inverse_volume
@@ -263,7 +263,7 @@ class DensityFluidSim:
             if distance > self.radius or distance == 0:
                 continue
             direction = diff / distance
-            influence_derivative = square_kernel_derivative(distance, self._radius, self.inverse_volume2)
+            influence_derivative = linear_kernel(distance, self._radius, self.inverse_volume2)
 
             other_density = self.densities_of_particles[j]
             

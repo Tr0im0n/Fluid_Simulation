@@ -55,6 +55,25 @@ def test_np_type():
     b = a[0]
     c = b.astype(np.int32)
     print(type(c))
+    
+    
+def test_np_concatenate():
+    a = [[], [1], [2, 3]]
+    b = np.concatenate(a)
+    print(b)
+    
+    
+def test_nan():
+    a = np.array([1, 2, 3, np.nan, np.nan])
+    b = np.square(a)
+    print(b)
+    
+    
+def test_reference():
+    a = [1, 2]
+    b = a
+    a = 1
+    print(b)
 
 
 def main():
@@ -64,7 +83,10 @@ def main():
     # test_font()
     # test_colormap()
     # test_array_indexing()
-    test_np_type()
+    # test_np_type()
+    # test_np_concatenate()
+    # test_nan()
+    test_reference()
     
 
 if __name__ == "__main__":
