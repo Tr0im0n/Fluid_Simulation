@@ -138,13 +138,13 @@ class DensityFluidSim:
         In place for speed.
         Could be optimized with Numba.
         """
-        max_size = max(arr.size for arr in spl.cell_to_particle_neighbors)
+        max_size = max(arr.size for arr in spl.cell_to_particle_neighbor_indices)
         buffer1d = np.empty((max_size,), dtype=np.float32)
         buffer2d = np.empty((max_size, 2), dtype=np.float32)
         
         for i, point in enumerate(particles):
-            cell_index = spl.get_partition_index_from_pos(point)
-            neighbor_indices = spl.cell_to_particle_neighbors[cell_index]
+            cell_index = spl.partition_indices[i]
+            neighbor_indices = spl.cell_to_particle_neighbor_indices[cell_index]
             
             current_length = neighbor_indices.size
             b1d = buffer1d[:current_length]
@@ -172,7 +172,7 @@ class DensityFluidSim:
         In place for speed.
         Could be optimized with Numba.
         """
-        max_size = max(arr.size for arr in spl.cell_to_particle_neighbors)
+        max_size = max(arr.size for arr in spl.cell_to_particle_neighbor_indices)
         
         
         
@@ -181,8 +181,8 @@ class DensityFluidSim:
         buffer2d = np.empty((max_size, 2), dtype=np.float32)
         
         for i, point in enumerate(particles):
-            cell_index = spl.get_partition_index_from_pos(point)
-            neighbor_indices = spl.cell_to_particle_neighbors[cell_index]
+            cell_index = spl.partition_indices[i]
+            neighbor_indices = spl.cell_to_particle_neighbor_indices[cell_index]
             
             current_length = neighbor_indices.size
             b1d = buffer1d[:current_length]
@@ -237,8 +237,8 @@ class DensityFluidSim:
                               cached_densities: np.ndarray, mass: float, inverse_volume: float):
         
         for i, point in enumerate(particles):
-            cell_index = spl.get_partition_index_from_pos(point)
-            neighbor_indices = spl.cell_to_particle_neighbors[cell_index]
+            cell_index = spl.partition_indices[i]
+            neighbor_indices = spl.cell_to_particle_neighbor_indices[cell_index]
             neighbor_particles = particles[neighbor_indices]
             # if 0 == neighbor_particles.size:
             #     return 0.0

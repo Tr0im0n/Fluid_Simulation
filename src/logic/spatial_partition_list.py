@@ -9,8 +9,8 @@ class SpatialPartitionList:
     """ Can't be changed after instantiation. """
     N_NEIGHBORS = 9
     
-    CELL_TO_CELL_NEIGHBORS: np.ndarray
-    cell_to_particle_neighbors: list[np.ndarray]
+    cell_to_cell_neighbors: np.ndarray
+    cell_to_particle_neighbor_indices: list[np.ndarray]
     
 #########################################################################################################################
 # Special Methods
@@ -23,17 +23,18 @@ class SpatialPartitionList:
             sim_height: int,
         ):
         
+        self.particle = particles # still not used
         self.cell_size = cell_size
         self.sim_width = sim_width
         self.sim_height = sim_height
         
         grid_vals = self.calculate_grid_vals(sim_width, sim_height, cell_size)
-        self.grid_width, self.grid_height, self.total_cells, self.neighbor_offsets = grid_vals
-        self.create_neighboring_cells_array()
+        self.grid_columns, self.grid_rows, self.total_cells, self.neighbor_offsets = grid_vals
+        self.create_cell_to_cell_neighbors()
         
         self._partition_list = [list() for _ in range(self.total_cells)]
         if particles is not None:
-            self.populate(particles)
+            self.populate(particles, True)
         
     def __getitem__(self, key: int):
         """ Allows instance[index] or instance[slice] to access elements of self.main_list. """
@@ -47,30 +48,33 @@ class SpatialPartitionList:
 # Instance Methods
 #################################################################################################
 
-    def create_neighboring_cells_array(self) -> None:
+    def create_cell_to_cell_neighbors(self) -> None:
         """ Create array where each row are the indices of the cells neighboring the cell of that index. 
             Only used once in the init. """
-        self.CELL_TO_CELL_NEIGHBORS = self.calc_cell_to_cell_neighbors(
-            self.neighbor_offsets, self.grid_width, self.total_cells)
-        
-    def get_partition_index_from_pos(self, point: np.ndarray) -> int:
-        """ Get the index in the spatial partition, of the particle. """
-        cell_x = int(point[0] // self.cell_size)
-        cell_y = int(point[1] // self.cell_size)
-        return cell_y * self.grid_width + cell_x
+        self.cell_to_cell_neighbors = self.calc_cell_to_cell_neighbors(
+            self.neighbor_offsets, self.grid_columns, self.total_cells)
 
-    def populate(self, particles: np.ndarray) -> None:
+    def populate(self, particles: np.ndarray, already_set_particles: bool=False) -> None:
         """ Used in the init. 
             And can by used outside! """
-        for particle_index, particle in enumerate(particles):
-            cell_index = self.get_partition_index_from_pos(particle)
+        if not already_set_particles:
+            self.particles = particles
+        self.partition_indices = self.calc_partition_indices(particles, self.cell_size, self.grid_columns)
+        
+        for particle_index, cell_index in enumerate(self.partition_indices):
             self._partition_list[cell_index].append(particle_index)
-        self.create_neighboring_particles_array()
+        self.create_cell_to_particle_neighbor_indices()
+        self.create_particle_to_particle_neighbor_indices()
     
-    def create_neighboring_particles_array(self) -> None:
+    def create_cell_to_particle_neighbor_indices(self) -> None:
         """set self.CELL_TO_PARTICLE_NEIGHBORS"""
-        self.cell_to_particle_neighbors = self.calc_cell_to_particle_neighbors(
-            self._partition_list, self.CELL_TO_CELL_NEIGHBORS)
+        self.cell_to_particle_neighbor_indices = self.calc_cell_to_particle_neighbor_indices(
+            self._partition_list, self.cell_to_cell_neighbors)
+
+    def create_particle_to_particle_neighbor_indices(self) -> None:
+        """ I mean just read the function name. """
+        self.particle_to_particle_neighbor_indices = self.calc_particle_to_particle_neighbor_indices(
+            self.cell_to_particle_neighbor_indices, self.partition_indices)
 
 #################################################################################################
 # Static Methods
@@ -81,20 +85,27 @@ class SpatialPartitionList:
         """ 
         Calculates all grid-related constants necessary for spatial partitioning.
         
-        Returns: grid_width, grid_height, total_cells, neighbor_offsets
+        Returns: grid_columns, grid_rows, total_cells, neighbor_offsets
         """
         # Grid dimensions
-        grid_width = math.ceil(sim_width / cell_size)
-        grid_height = math.ceil(sim_height / cell_size)
-        total_cells = grid_width * grid_height
+        grid_columns = math.ceil(sim_width / cell_size)
+        grid_rows = math.ceil(sim_height / cell_size)
+        total_cells = grid_columns * grid_rows
         # Neighbor info
         neighbor_offsets = np.array([
-            -grid_width - 1, -grid_width, -grid_width + 1,
+            -grid_columns - 1, -grid_columns, -grid_columns + 1,
             -1,                0,             1,
-            grid_width - 1,  grid_width,  grid_width + 1
+            grid_columns - 1,  grid_columns,  grid_columns + 1
         ], dtype=np.int32)
         # return tuple
-        return grid_width, grid_height, total_cells, neighbor_offsets
+        return grid_columns, grid_rows, total_cells, neighbor_offsets
+    
+    @staticmethod
+    def calc_partition_indices(points: np.ndarray, cell_size: float, grid_columns: int) -> NDArray[np.int32]:
+        """ Get the index in the spatial partition, of the particles. """
+        cell_x = np.floor_divide(points[:, 0], cell_size).astype(np.int32)
+        cell_y = np.floor_divide(points[:, 1], cell_size).astype(np.int32)
+        return cell_y * grid_columns + cell_x
     
     @staticmethod
     def calc_neighbor_indices_of_cell(cell_index: int, neighbor_offsets: NDArray[np.int32], grid_width: int, total_cells: int) -> NDArray[np.int32]:
@@ -125,7 +136,7 @@ class SpatialPartitionList:
         return answer
     
     @staticmethod
-    def calc_cell_to_particle_neighbors(spl: list[list[int]], 
+    def calc_cell_to_particle_neighbor_indices(spl: list[list[int]], 
                                        cell_to_cell_neighbors: NDArray[np.int32]) -> list[NDArray[np.int32]]:
         """ Returns the indices of the particles in the neighboring partitions. """
         result = [
@@ -136,6 +147,14 @@ class SpatialPartitionList:
             for neighbor_group in cell_to_cell_neighbors
         ]
         return result
+    
+    @staticmethod
+    def calc_particle_to_particle_neighbor_indices(cell_to_particle_neighbor_indices: list[NDArray[np.int32]], 
+                                                   partition_indices: NDArray[np.int32]) -> NDArray[np.int32]:
+        """ docstring? """
+        # return np.take(cell_to_particle_neighbor_indices, partition_indices) # Jagged array error
+        ans_list = [cell_to_particle_neighbor_indices[i] for i in partition_indices]
+        return np.concatenate(ans_list)
     
     
 """ 
@@ -180,6 +199,15 @@ class SpatialPartitionList:
             -1,                 0,              1,
             self.GRID_WIDTH -1,  self.GRID_WIDTH, self.GRID_WIDTH +1
         ])
+        
+        
+        
+    def get_partition_index_from_pos(self, point: np.ndarray, ) -> int:
+        # Get the index in the spatial partition, of the particle. 
+        cell_x = int(point[0] // self.cell_size)
+        cell_y = int(point[1] // self.cell_size)
+        return cell_y * self.grid_columns + cell_x
+        
 
 """    
     
