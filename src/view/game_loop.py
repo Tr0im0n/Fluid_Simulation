@@ -37,7 +37,7 @@ class Game:
         self.looping_circle = LoopingCircle(width, height)
         self.font = pygame.font.SysFont("arial", 24)
 
-        self.DFS = DensityFluidSim(None, 790, 590, 45.2)
+        self.DFS = DensityFluidSim(None, 790, 590, 60.)
 
 
     def handle_events(self):

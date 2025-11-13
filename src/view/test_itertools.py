@@ -74,6 +74,12 @@ def test_reference():
     b = a
     a = 1
     print(b)
+    
+    
+def test_cumsum():
+    a = np.array([1, 2, 3, 4, 5])
+    b = np.cumsum(a)
+    print(b)
 
 
 def main():
@@ -86,7 +92,8 @@ def main():
     # test_np_type()
     # test_np_concatenate()
     # test_nan()
-    test_reference()
+    # test_reference()
+    test_cumsum()
     
 
 if __name__ == "__main__":
