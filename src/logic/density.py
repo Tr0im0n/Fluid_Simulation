@@ -1,6 +1,7 @@
 
 import math
 import numpy as np
+from numpy.typing import NDArray
 from src.logic.spatial_partition_list import SpatialPartitionList
 from src.utils.arrays import create_coordinate_array
 from src.utils.instance import _set_config_attributes
@@ -33,12 +34,14 @@ class DensityFluidSim:
         self.sim_width = sim_width
         self.sim_height = sim_height
         self._radius = radius
+        # r_desired = sqrt(width*height/n_particles*n_particle_per_cell)
         self.mass = mass
         self.target_density = target_density
         self.pressure_force_multiplier = pressure_force_multiplier
         
         self._particles = particles if particles is not None else self.generate_random_particles(1000, self.sim_width, self.sim_height)
-        self.spatial_partition_list = SpatialPartitionList(self._particles, self._radius, self.sim_width, self.sim_height)
+        self.spatial_partition_list = SpatialPartitionList.with_particles(
+                self._particles, self._radius, self.sim_width, self.sim_height)
         
         self._calc_vals_dependent_on_radius()
         
@@ -91,8 +94,8 @@ class DensityFluidSim:
 
     def new_spatial_partition(self):
         """ Make new spatial partition, most likely due to change of influence radius. """ 
-        self.spatial_partition_list = SpatialPartitionList(
-            self._particles, self._radius, self.sim_width, self.sim_height)
+        self.spatial_partition_list = SpatialPartitionList.with_particles(
+                self._particles, self._radius, self.sim_width, self.sim_height)
         
     def update_densities(self, create_new_array: bool = False) -> None:
         """ Check if we need to make a new array. Needed if we add more particles.
@@ -165,6 +168,18 @@ class DensityFluidSim:
 
             cached_densities[i] = b1d.sum() * mass * inverse_volume
             
+    @staticmethod
+    def calc_linear_influence(particles: NDArray[np.float32], spl: SpatialPartitionList):
+        neighbor_particles = np.take(particles, spl.neighbor_indices_flat)
+        repeated_particles = np.repeat(particles, spl.amount_of_interactions)
+        
+        differences = neighbor_particles - repeated_particles
+        distances = np.linalg.norm(differences, axis=1) # dont yet 100% understand axis
+        influence_contributions = np.maximum(0, 1 - distances)
+        
+        linear_influence = np.add.reduceat(influence_contributions, spl.start_indices)
+        return linear_influence
+    
     @staticmethod
     def calc_densities_vectorized(cached_densities: np.ndarray, particles: np.ndarray, spl: SpatialPartitionList,
                                   radius: float = 40., inverse_volume: float = 1., mass: float = 1.) -> None:
