@@ -68,7 +68,6 @@ class SpatialPartitionList:
     def populate(self, particles: np.ndarray) -> tuple[NDArray[np.int32], NDArray[np.int32], NDArray[np.int32]]:
         """ Main method 
             returns: self.center_indices_flat, self.neighbor_indices_flat, self.start_indices """
-        print("Entered populate")
         # self.particles = particles
         # Makes an array where each entry is the partition cell for that particle
         self.partition_indices = self.calc_partition_indices(
@@ -76,12 +75,10 @@ class SpatialPartitionList:
         # need to empty the list first here
         self.partition_list = [list() for _ in range(self.total_cells)]
         # Actually populating the partition list
-        print("here 1")
         for particle_index, cell_index in enumerate(self.partition_indices):
             if cell_index >= self.total_cells:
                 print(cell_index)
             self.partition_list[cell_index].append(particle_index)
-        print("here 2")
         # Making big data structures for fast computation
         self.cell_to_particle_neighbor_indices = self.calc_cell_to_particle_neighbor_indices(
                 self.partition_list, self.cell_to_cell_neighbors)

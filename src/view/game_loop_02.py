@@ -41,9 +41,9 @@ class Game:
         self.font = pygame.font.SysFont("arial", 24)
 
         self.h = 61.2
-        self.rho_0 = 100
+        self.rho_0 = 0.002
 
-        self.ps = ParticleSystem.from_random_particles(1000, 2, width, height, 42)
+        self.ps = ParticleSystem.from_random_particles(1000, 2, width, height, 67)
         # self.spl = SpatialPartitionList.with_particles(self.ps.positions, h, width, height)
         self.spl = SpatialPartitionList(self.h, width, height)
 
@@ -58,12 +58,18 @@ class Game:
                     self.running = False
 
     def update(self, dt: float):
-        print("Entered update")
+        pressure_multi = 10.
+        viscosity_multi = 1.
+        gravity = 16.
+        
+        self.ps.velocities[:, 1] += gravity * dt
+        self.ps.positions += self.ps.velocities * dt
+        flat_calcer.apply_boundary_collision(self.ps.positions, self.ps.velocities, self.width, self.height)
+        
         self.spl.populate(self.ps.positions)
-        a_pressure = flat_calcer.calc_things(self.ps.positions, self.h, self.spl, self.rho_0)
-        print("update 2")
-        pressure_multi = 1
-        self.ps.velocities -= pressure_multi * a_pressure * dt
+        a_pressure, a_viscosity, densities = flat_calcer.calc_things(self.ps, self.spl, self.h, self.rho_0)
+        self.ps.densities = densities
+        self.ps.velocities += (pressure_multi * a_pressure + viscosity_multi * a_viscosity) * dt
         self.ps.positions += self.ps.velocities * dt
         flat_calcer.apply_boundary_collision(self.ps.positions, self.ps.velocities, self.width, self.height)
         
@@ -72,11 +78,11 @@ class Game:
         for point in self.ps.positions:
             pygame.draw.circle(self.screen, (255, 255, 255), (int(point[0]), int(point[1])), 2)
             
-    # def draw_particles_color_density(self):
-    #     densities = normalize_array(self.DFS.densities_of_particles)
-    #     colors = [colormap(density, (0, 0, 255), (255, 255, 255), (255, 0, 0)) for density in densities]
-    #     for point, color in zip(self.DFS.particles, colors):
-    #         pygame.draw.circle(self.screen, color, (int(point[0]), int(point[1])), 3)
+    def draw_particles_color_density(self):
+        densities = normalize_array(self.ps.densities)
+        colors = [colormap(density, (0, 0, 255), (255, 255, 255), (255, 0, 0)) for density in densities]
+        for point, color in zip(self.ps.positions, colors):
+            pygame.draw.circle(self.screen, color, (int(point[0]), int(point[1])), 3)
 
     def draw_fps(self):
         current_fps = self.clock.get_fps()
@@ -92,8 +98,10 @@ class Game:
 
     def draw(self):
         self.screen.fill((0, 0, 0))
-        # self.draw_particles_color_density()
-        self.draw_particles()
+        self.draw_particles_color_density()
+        print(self.ps.densities.min())
+        print(self.ps.densities.max())
+        # self.draw_particles()
         self.draw_fps()
         self.draw_runtime()
 
