@@ -24,6 +24,13 @@
             "request": "launch",
             "module": "src.view.game_loop",
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "game_loop_02",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.view.game_loop_02",
+            "cwd": "${workspaceFolder}"
         }
     ]
 }

@@ -13,6 +13,9 @@ take all points at given indices
 
 
 
+w_poly6
+w_spiky
+w_viscosity
 
 
 

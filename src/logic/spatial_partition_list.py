@@ -19,9 +19,10 @@ class SpatialPartitionList:
     N_PER_CELL = 8.0
     
     cell_to_particle_neighbor_indices: list[NDArray[np.int32]]
-    amount_of_interactions: NDArray[np.int32]
+    amounts_of_interactions: NDArray[np.int32]
     center_indices_flat: NDArray[np.int32]
     neighbor_indices_flat: NDArray[np.int32]
+    start_indices: NDArray[np.int32]
     
 #########################################################################################################################
 # Special Methods
@@ -40,15 +41,16 @@ class SpatialPartitionList:
         self.grid_columns = math.ceil(sim_width / cell_size)
         self.grid_rows = math.ceil(sim_height / cell_size)
         self.total_cells = self.grid_columns * self.grid_rows
+        print(f"Total cells : {self.total_cells}")
         
-        self._partition_list = [list() for _ in range(self.total_cells)]
+        self.partition_list = []
         self.neighbor_cell_offsets = self.calc_neighbor_cell_offsets(self.grid_columns)
         self.cell_to_cell_neighbors = self.calc_cell_to_cell_neighbors(
                 self.neighbor_cell_offsets, self.grid_columns, self.total_cells)
 
     @classmethod
     def with_particles(cls,
-            particles: np.ndarray,
+            particles: NDArray[np.float32],
             cell_size: float,
             sim_width: int,
             sim_height: int):
@@ -61,31 +63,46 @@ class SpatialPartitionList:
 # Instance Methods
 #################################################################################################
 
+# TODO make an in place method for this
+
     def populate(self, particles: np.ndarray) -> tuple[NDArray[np.int32], NDArray[np.int32], NDArray[np.int32]]:
         """ Main method 
             returns: self.center_indices_flat, self.neighbor_indices_flat, self.start_indices """
+        print("Entered populate")
         # self.particles = particles
         # Makes an array where each entry is the partition cell for that particle
         self.partition_indices = self.calc_partition_indices(
                 particles, self.cell_size, self.grid_columns)
+        # need to empty the list first here
+        self.partition_list = [list() for _ in range(self.total_cells)]
         # Actually populating the partition list
+        print("here 1")
         for particle_index, cell_index in enumerate(self.partition_indices):
-            self._partition_list[cell_index].append(particle_index)
+            if cell_index >= self.total_cells:
+                print(cell_index)
+            self.partition_list[cell_index].append(particle_index)
+        print("here 2")
         # Making big data structures for fast computation
         self.cell_to_particle_neighbor_indices = self.calc_cell_to_particle_neighbor_indices(
-                self._partition_list, self.cell_to_cell_neighbors)
+                self.partition_list, self.cell_to_cell_neighbors)
         
         cell_to_particle_neighbor_amounts = np.array([len(i) for i in self.cell_to_particle_neighbor_indices], dtype=np.int32)
-        self.amount_of_interactions = np.take(cell_to_particle_neighbor_amounts, self.partition_indices)
-        self.center_indices_flat = np.repeat(np.arange(len(particles)), self.amount_of_interactions)
+        self.amounts_of_interactions = np.take(cell_to_particle_neighbor_amounts, self.partition_indices)
+        self.center_indices_flat = np.repeat(np.arange(len(particles)), self.amounts_of_interactions)
         
         neighbor_indices_jagged = [self.cell_to_particle_neighbor_indices[i] for i in self.partition_indices]
         self.neighbor_indices_flat = np.concatenate(neighbor_indices_jagged)
         
-        end_indices = np.cumsum(self.amount_of_interactions)
+        end_indices = np.cumsum(self.amounts_of_interactions)
         self.start_indices = np.concatenate(([0], end_indices[:-1]))
         
         return self.center_indices_flat, self.neighbor_indices_flat, self.start_indices
+
+    def get_flat_vals(self):
+        """ returns: self.center_indices_flat, self.neighbor_indices_flat, self.start_indices \n
+            center_indices_flat, neighbor_indices_flat, start_indices """
+        return self.center_indices_flat, self.neighbor_indices_flat, self.start_indices
+
 
 #################################################################################################
 # Static Methods

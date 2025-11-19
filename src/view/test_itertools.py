@@ -80,6 +80,13 @@ def test_cumsum():
     a = np.array([1, 2, 3, 4, 5])
     b = np.cumsum(a)
     print(b)
+    
+    
+def test_multiply_row_col():
+    a = np.array([1, 2])
+    b = np.array([[1], [2]])
+    c = a*b
+    print(c)
 
 
 def main():
@@ -93,7 +100,8 @@ def main():
     # test_np_concatenate()
     # test_nan()
     # test_reference()
-    test_cumsum()
+    # test_cumsum()
+    test_multiply_row_col()
     
 
 if __name__ == "__main__":

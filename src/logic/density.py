@@ -171,7 +171,7 @@ class DensityFluidSim:
     @staticmethod
     def calc_linear_influence(particles: NDArray[np.float32], spl: SpatialPartitionList):
         neighbor_particles = np.take(particles, spl.neighbor_indices_flat)
-        repeated_particles = np.repeat(particles, spl.amount_of_interactions)
+        repeated_particles = np.repeat(particles, spl.amounts_of_interactions)
         
         differences = neighbor_particles - repeated_particles
         distances = np.linalg.norm(differences, axis=1) # dont yet 100% understand axis
