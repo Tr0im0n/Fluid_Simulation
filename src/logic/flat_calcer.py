@@ -13,6 +13,7 @@ def calc_things(ps: ParticleSystem, spl: SpatialPartitionList,
     h2 = h**2
     h5 = h**5
     h8 = h**8
+    m = 100
     
     alpha_poly6 = 4.0 / (PI * h8)
     alpha_spiky = 10.0 / (PI * h5)
@@ -33,7 +34,7 @@ def calc_things(ps: ParticleSystem, spl: SpatialPartitionList,
     w_spiky_magnitude = np.square(w_viscosity)
     w_spiky = w_spiky_magnitude[:, np.newaxis] * unit_vectors
 
-    densities = np.add.reduceat(w_poly6, start_indices) * alpha_poly6
+    densities = np.add.reduceat(w_poly6, start_indices) * (alpha_poly6 * m)
     
     center_densities = np.take(densities, center_indices_flat)
     neighbor_densities = np.take(densities, neighbor_indices_flat)

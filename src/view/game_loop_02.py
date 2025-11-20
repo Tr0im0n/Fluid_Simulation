@@ -40,8 +40,8 @@ class Game:
         
         self.font = pygame.font.SysFont("arial", 24)
 
-        self.h = 61.2
-        self.rho_0 = 0.002
+        self.h = 51.2
+        self.rho_0 = 0.1
 
         self.ps = ParticleSystem.from_random_particles(1000, 2, width, height, 67)
         # self.spl = SpatialPartitionList.with_particles(self.ps.positions, h, width, height)
@@ -58,9 +58,9 @@ class Game:
                     self.running = False
 
     def update(self, dt: float):
-        pressure_multi = 10.
+        pressure_multi = 20.
         viscosity_multi = 1.
-        gravity = 16.
+        gravity = 4.
         
         self.ps.velocities[:, 1] += gravity * dt
         self.ps.positions += self.ps.velocities * dt
@@ -99,8 +99,6 @@ class Game:
     def draw(self):
         self.screen.fill((0, 0, 0))
         self.draw_particles_color_density()
-        print(self.ps.densities.min())
-        print(self.ps.densities.max())
         # self.draw_particles()
         self.draw_fps()
         self.draw_runtime()
