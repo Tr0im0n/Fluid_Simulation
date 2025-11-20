@@ -50,19 +50,19 @@ def calc_things(ps: ParticleSystem, spl: SpatialPartitionList,
     a_pressure_flat = (center_pressures + neighbor_pressures)[:, np.newaxis] * w_spiky
     a_pressure = np.add.reduceat(a_pressure_flat, start_indices) * alpha_spiky
     
-    center_velocities = np.take(ps.velocities, center_indices_flat)
-    neighbor_velocities = np.take(ps.velocities, neighbor_indices_flat)
+    center_velocities = np.take(ps.velocities, center_indices_flat, axis=0)
+    neighbor_velocities = np.take(ps.velocities, neighbor_indices_flat, axis=0)
     
-    # a_viscosity_flat = (inverse_shared_densities * w_viscosity)[:, np.newaxis] * (neighbor_velocities - center_velocities)
-    # a_viscosity = np.add.reduceat(a_viscosity_flat, start_indices) * alpha_viscosity
-    a_viscosity = 0
+    # a_viscosity = 0
+    a_viscosity_flat = (inverse_shared_densities * w_viscosity)[:, np.newaxis] * (neighbor_velocities - center_velocities)
+    a_viscosity = np.add.reduceat(a_viscosity_flat, start_indices) * alpha_viscosity
     
     return a_pressure, a_viscosity, densities
     
     
 def apply_boundary_collision(positions: NDArray[np.float32], velocities: NDArray[np.float32], 
                              max_width: float, max_height: float, 
-                             bounce_factor: float = 0.5, epsilon: float = 1e-5) -> None:
+                             bounce_factor: float = 0.8, epsilon: float = 1e-3) -> None:
     left_hit = positions[:, 0] < 0.0
     right_hit = positions[:, 0] > max_width
     top_hit = positions[:, 1] < 0.0
