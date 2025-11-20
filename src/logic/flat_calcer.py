@@ -35,6 +35,10 @@ def calc_things(ps: ParticleSystem, spl: SpatialPartitionList,
 
     densities = np.add.reduceat(w_poly6, start_indices) * alpha_poly6
     
+    center_densities = np.take(densities, center_indices_flat)
+    neighbor_densities = np.take(densities, neighbor_indices_flat)
+    inverse_shared_densities = 1.0 / (center_densities * neighbor_densities)
+    
     # pressures_normalized = (densities - rho_0) / densities**2
     b = c_0_2 * rho_0 / gamma
     pressures_normalized = b / (densities**2) * (np.pow(densities / rho_0, gamma) - 1) 
@@ -47,10 +51,10 @@ def calc_things(ps: ParticleSystem, spl: SpatialPartitionList,
     
     center_velocities = np.take(ps.velocities, center_indices_flat)
     neighbor_velocities = np.take(ps.velocities, neighbor_indices_flat)
-    neighbor_densities = np.take(densities, neighbor_indices_flat)
     
-    # a_viscosity_flat = (neighbor_velocities - center_velocities) / neighbor_densities[:, np.newaxis] * w_viscosity
-    # a_viscosity = np.add.reduceat(a_viscosity_flat, start_indices) * alpha_viscosity / densities[:, np.newaxis]
+    # a_viscosity_flat = (inverse_shared_densities * w_viscosity)[:, np.newaxis] * (neighbor_velocities - center_velocities)
+    # a_viscosity = np.add.reduceat(a_viscosity_flat, start_indices) * alpha_viscosity
+    a_viscosity = 0
     
     return a_pressure, a_viscosity, densities
     
